@@ -75,6 +75,15 @@ describe("send", () => {
     expect(await send("alpha", { ...base, key: "job-3" }, NOW + 16 * 60_000)).toMatchObject({ ok: true });
   });
 
+  it("gives each app its own per-recipient allowance", async () => {
+    const { send } = setup();
+    // Another app mailing the same person first must not use up alpha's allowance of 2.
+    for (let i = 0; i < 3; i++) expect(await send("beta", { ...base, kind: "notice" })).toMatchObject({ ok: true });
+    expect(await send("alpha", base)).toMatchObject({ ok: true });
+    expect(await send("alpha", base)).toMatchObject({ ok: true });
+    expect(await send("alpha", base)).toMatchObject({ ok: false, code: "cap_recipient" });
+  });
+
   it("enforces per-recipient, daily and monthly caps, and gives back units of failed sends", async () => {
     const { email, send } = setup();
     expect(await send("alpha", base)).toMatchObject({ ok: true });
@@ -95,7 +104,7 @@ describe("send", () => {
 
     // A refusal by a later rule gives back the units the earlier rules took.
     const counters = await env.DB.prepare("SELECT key, n FROM counters ORDER BY key").all<{ key: string; n: number }>();
-    expect(counters.results.find((c) => c.key === "recipient:2026-11-11:six@example.net")?.n ?? 0).toBe(0);
+    expect(counters.results.find((c) => c.key === "recipient:alpha:2026-11-11:six@example.net")?.n ?? 0).toBe(0);
   });
 
   it("keeps a reserve of the global cap for priority kinds", async () => {
