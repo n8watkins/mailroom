@@ -1,0 +1,35 @@
+{
+  "name": "mailroom",
+  "version": "0.0.0",
+  "description": "One Cloudflare Worker that sends every app's transactional email through Cloudflare Email Service, with per-app caps, suppression, and bounce and complaint events passed back to the sending app.",
+  "license": "MIT",
+  "type": "module",
+  "private": true,
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "check:deploy": "wrangler deploy --dry-run --outdir .wrangler/dry-run",
+    "deploy": "wrangler d1 migrations apply DB --remote && wrangler deploy",
+    "db:migrate": "wrangler d1 migrations apply DB --remote",
+    "cf-typegen": "wrangler types --include-runtime=false",
+    "release": "release-kit release",
+    "release:check": "release-kit check && npm run typecheck && npm test",
+    "prepare": "git config core.hooksPath .githooks || true"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-plugin": "^1.6.0",
+    "@cloudflare/workers-types": "^5.20261101.1",
+    "release-kit": "github:n8watkins/release-kit#v2.10.1",
+    "typescript": "^6.0.3",
+    "vitest": "^5.1.0",
+    "wrangler": "^4.156.0"
+  },
+  "allowScripts": {
+    "esbuild": true,
+    "workerd": true
+  }
+}
