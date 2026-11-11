@@ -1,6 +1,6 @@
 {
   "name": "mailroom",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "One Cloudflare Worker that sends every app's transactional email through Cloudflare Email Service, with per-app caps, suppression, and bounce and complaint events passed back to the sending app.",
   "license": "MIT",
   "type": "module",

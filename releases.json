@@ -4,6 +4,64 @@
   "repository": "n8watkins/mailroom",
   "releases": [
     {
+      "version": "0.3.0",
+      "tag": "v0.3.0",
+      "date": "2026-11-11",
+      "time": "2026-11-11T17:47:51Z",
+      "url": "https://github.com/n8watkins/mailroom/releases/tag/v0.3.0",
+      "previous": "v0.2.0",
+      "summary": null,
+      "breaking": false,
+      "notes": [
+        {
+          "section": "new",
+          "type": "feat",
+          "scope": null,
+          "text": "An all-app monthly cap keeps email inside what Workers Paid includes, so it never bills",
+          "breaking": false,
+          "pr": 12,
+          "prUrl": "https://github.com/n8watkins/mailroom/pull/12",
+          "commit": "1ee409ede91b08dbdba60232c2ce148872c4fa75",
+          "commitUrl": "https://github.com/n8watkins/mailroom/commit/1ee409ede91b08dbdba60232c2ce148872c4fa75"
+        },
+        {
+          "section": "new",
+          "type": "feat",
+          "scope": null,
+          "text": "Get an email at 70, 85, 95 and 100% of the monthly cap, and when the daily cap is hit",
+          "breaking": false,
+          "pr": 13,
+          "prUrl": "https://github.com/n8watkins/mailroom/pull/13",
+          "commit": "f7a03935b40bf9c8755b62d3d03cbd31bdbf14ea",
+          "commitUrl": "https://github.com/n8watkins/mailroom/commit/f7a03935b40bf9c8755b62d3d03cbd31bdbf14ea"
+        },
+        {
+          "section": "new",
+          "type": "feat",
+          "scope": "n8builds",
+          "text": "Tend sends through mailroom with a 150 a month slice",
+          "breaking": false,
+          "pr": 14,
+          "prUrl": "https://github.com/n8watkins/mailroom/pull/14",
+          "commit": "8aad95cbb48c67c2eaf9287a56589ec71ab948d6",
+          "commitUrl": "https://github.com/n8watkins/mailroom/commit/8aad95cbb48c67c2eaf9287a56589ec71ab948d6"
+        },
+        {
+          "section": "new",
+          "type": "feat",
+          "scope": "n8builds",
+          "text": "The n8builds.dev newsletter sends through mailroom with a 150 a month slice",
+          "breaking": false,
+          "pr": 15,
+          "prUrl": "https://github.com/n8watkins/mailroom/pull/15",
+          "commit": "4f3b5b63000d094c4561b53c5624b0e4e1073428",
+          "commitUrl": "https://github.com/n8watkins/mailroom/commit/4f3b5b63000d094c4561b53c5624b0e4e1073428"
+        }
+      ],
+      "source": "release",
+      "unattributed": 0
+    },
+    {
       "version": "0.2.0",
       "tag": "v0.2.0",
       "date": "2026-11-10",
