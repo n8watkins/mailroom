@@ -57,7 +57,7 @@ export function fakeHook(): EmailEventHook & { calls: MailEvent[]; failNext: boo
 
 export async function resetDb(): Promise<void> {
   await applyD1Migrations(env.DB, env.TEST_MIGRATIONS);
-  await env.DB.batch(["sends", "email_events", "suppressions", "counters"].map((t) => env.DB.prepare(`DELETE FROM ${t}`)));
+  await env.DB.batch(["sends", "email_events", "suppressions", "counters", "app_settings", "audit_log"].map((t) => env.DB.prepare(`DELETE FROM ${t}`)));
 }
 
 export function testEnv(overrides: Partial<Env> & Record<string, unknown> = {}): Env {

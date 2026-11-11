@@ -33,6 +33,21 @@ queue "mailroom-email-events" (Email Sending subscription per sending domain) â”
 
 There is no public URL: `workers_dev` is off and the `fetch` handler answers 404.
 
+## The owner's dashboard
+
+n8builds-admin binds a second entrypoint, `MailroomAdmin`, which no app binds:
+
+```jsonc
+"services": [{ "binding": "MAILROOM", "service": "mailroom", "entrypoint": "MailroomAdmin" }]
+```
+
+- **Reads:** `usage()`, `recentSends()` (time, app, kind, masked recipient, status), `problems()` (bounces, complaints, rejections and failures), `suppressions()` and `auditLog()`.
+  Addresses come back masked (`jo***@gmail.com`), inside SMTP replies too, and no email content is ever returned or stored.
+- **Changes**, each taking the signed-in owner as `actor` and written to `audit_log` in the same batch:
+  - `removeSuppression(id, actor)` lets mailroom mail an address again. Cloudflare keeps its own account-wide suppression list, so a hard bounce also has to be cleared there (Compute, Email Service, Suppressions) before mail reaches it.
+  - `setPaused(app, paused, actor)`: a paused app's sends are refused with `paused` (retryable) until it is resumed.
+  - `setDailyCap(app, cap, actor)` replaces the app's daily cap from `src/apps.ts`, from 0 up to `GLOBAL_DAY_CAP`; `null` puts the default back.
+
 ## Calling it from an app
 
 Add a service binding in the app's `wrangler.jsonc`; `props.app` is its id in `src/apps.ts`:

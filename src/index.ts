@@ -1,4 +1,18 @@
 import { WorkerEntrypoint } from "cloudflare:workers";
+import {
+  auditLog,
+  problemEvents,
+  recentSends,
+  removeSuppression,
+  setDailyCap,
+  setPaused,
+  suppressionList,
+  type ActionResult,
+  type AuditRow,
+  type ProblemRow,
+  type SendRow,
+  type SuppressionRow,
+} from "./admin";
 import { APPS } from "./apps";
 import { count, dayWindow, monthWindow, DAY_MS } from "./caps";
 import { eventsFor, handleEvent, type EmailSendingEvent } from "./events";
@@ -6,6 +20,7 @@ import { isSuppressed, sendFor } from "./send";
 import type { AppUsage, CallerProps, Env, MailEvent, SendRequest, SendResult, Usage } from "./types";
 
 export type { AppUsage, MailEvent, SendRequest, SendResult, Usage } from "./types";
+export type { ActionResult, AuditRow, ProblemRow, SendRow, SuppressionRow } from "./admin";
 
 // Rows older than these are deleted by the daily cron.
 const SENDS_KEEP_MS = 400 * DAY_MS;
@@ -47,6 +62,48 @@ export class Mailroom extends WorkerEntrypoint<Env, CallerProps> {
   }
 }
 
+/**
+ * The owner's dashboard (n8builds-admin) only:
+ *
+ *   { "binding": "MAILROOM", "service": "mailroom", "entrypoint": "MailroomAdmin" }
+ *
+ * Reads return masked addresses and no email content. Each change takes the
+ * signed-in owner as `actor` and is written to the audit log.
+ */
+export class MailroomAdmin extends WorkerEntrypoint<Env> {
+  async usage(): Promise<Usage> {
+    return usageReport(this.env);
+  }
+
+  async recentSends(opts: { limit?: number; app?: string } = {}): Promise<SendRow[]> {
+    return recentSends(this.env.DB, opts);
+  }
+
+  async problems(opts: { limit?: number } = {}): Promise<ProblemRow[]> {
+    return problemEvents(this.env.DB, opts);
+  }
+
+  async suppressions(opts: { limit?: number } = {}): Promise<SuppressionRow[]> {
+    return suppressionList(this.env.DB, opts);
+  }
+
+  async auditLog(opts: { limit?: number } = {}): Promise<AuditRow[]> {
+    return auditLog(this.env.DB, opts);
+  }
+
+  async removeSuppression(id: number, actor: string): Promise<ActionResult> {
+    return removeSuppression(this.env.DB, id, actor);
+  }
+
+  async setPaused(app: string, paused: boolean, actor: string): Promise<ActionResult> {
+    return setPaused(this.env.DB, app, paused, actor);
+  }
+
+  async setDailyCap(app: string, cap: number | null, actor: string): Promise<ActionResult> {
+    return setDailyCap(this.env.DB, this.env, app, cap, actor);
+  }
+}
+
 export async function usageReport(env: Env, now = Date.now()): Promise<Usage> {
   const day = dayWindow(now);
   const month = monthWindow(now);
@@ -75,14 +132,18 @@ export async function usageReport(env: Env, now = Date.now()): Promise<Usage> {
   const problemCount = (app: string, type: string) => problemRows.find((r) => r.app === app && r.type === type)?.n ?? 0;
   const sentFor = (app: string) => sentRows.filter((r) => r.app === app).reduce((sum, r) => sum + r.n, 0);
 
+  const { results: settingRows } = await db.prepare("SELECT app, paused, day_cap FROM app_settings").all<{ app: string; paused: number; day_cap: number | null }>();
   const apps: AppUsage[] = [];
   for (const [id, cfg] of Object.entries(APPS)) {
+    const setting = settingRows.find((s) => s.app === id);
     apps.push({
       app: id,
       today: await count(db, `app:${id}:${day.id}`),
       month: await count(db, `app:${id}:${month.id}`),
       sentMonth: sentFor(id),
-      caps: cfg.caps,
+      caps: { ...cfg.caps, day: setting?.day_cap ?? cfg.caps.day },
+      defaultDayCap: cfg.caps.day,
+      paused: setting?.paused === 1,
       bounces30d: problemCount(id, "bounced"),
       complaints30d: problemCount(id, "complained"),
       failed30d: problemCount(id, "failed"),

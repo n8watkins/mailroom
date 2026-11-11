@@ -86,7 +86,13 @@ export async function suppress(
     .run();
 }
 
-export function capRules(appId: string, app: AppConfig, kind: string, recipient: string, env: Env, now: number): CapRule[] {
+/** The owner's overrides for an app (MailroomAdmin), or the defaults. */
+export async function appSettings(db: D1Database, appId: string): Promise<{ paused: boolean; dayCap: number | null }> {
+  const row = await db.prepare("SELECT paused, day_cap FROM app_settings WHERE app = ?").bind(appId).first<{ paused: number; day_cap: number | null }>();
+  return { paused: row?.paused === 1, dayCap: row?.day_cap ?? null };
+}
+
+export function capRules(appId: string, app: AppConfig, kind: string, recipient: string, env: Env, now: number, dayCap?: number | null): CapRule[] {
   const day = dayWindow(now);
   const month = monthWindow(now);
   const globalCap = Number(env.GLOBAL_DAY_CAP) || 0;
@@ -94,7 +100,7 @@ export function capRules(appId: string, app: AppConfig, kind: string, recipient:
   const priority = app.priority?.includes(kind) ?? false;
   return [
     { key: `recipient:${day.id}:${recipient}`, limit: app.caps.recipientDay, expiresAt: day.end, code: "cap_recipient" },
-    { key: `app:${appId}:${day.id}`, limit: app.caps.day, expiresAt: day.end, code: "cap_app_day" },
+    { key: `app:${appId}:${day.id}`, limit: dayCap ?? app.caps.day, expiresAt: day.end, code: "cap_app_day" },
     { key: `app:${appId}:${month.id}`, limit: app.caps.month, expiresAt: month.end, code: "cap_app_month" },
     {
       key: `global:${day.id}`,
@@ -119,6 +125,9 @@ export async function sendFor(appId: string | undefined, req: SendRequest, deps:
   if ("ok" in checked) return checked;
   const from = checked.from;
   const recipient = normalizeAddress(req.to);
+
+  const settings = await appSettings(db, appId);
+  if (settings.paused) return fail("paused", "The owner paused this app's email; it resumes from the admin.", true);
 
   if (await isSuppressed(db, recipient)) {
     return fail("suppressed", "This address bounced or complained before; mailroom will not send to it.");
@@ -157,7 +166,7 @@ export async function sendFor(appId: string | undefined, req: SendRequest, deps:
     rowId = inserted.id;
   }
 
-  const rules = capRules(appId, app, req.kind, recipient, env, now);
+  const rules = capRules(appId, app, req.kind, recipient, env, now, settings.dayCap);
   const refused = await reserve(db, rules);
   if (refused) {
     await markFailed(db, rowId, refused, now);
