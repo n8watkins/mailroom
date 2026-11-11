@@ -4,6 +4,31 @@
   "repository": "n8watkins/mailroom",
   "releases": [
     {
+      "version": "0.2.0",
+      "tag": "v0.2.0",
+      "date": "2026-11-10",
+      "time": "2026-11-11T03:48:25Z",
+      "url": "https://github.com/n8watkins/mailroom/releases/tag/v0.2.0",
+      "previous": "v0.1.0",
+      "summary": null,
+      "breaking": false,
+      "notes": [
+        {
+          "section": "new",
+          "type": "feat",
+          "scope": null,
+          "text": "Run your own mailroom: apps and Cloudflare resources move into a per-deployment config",
+          "breaking": false,
+          "pr": 9,
+          "prUrl": "https://github.com/n8watkins/mailroom/pull/9",
+          "commit": "21a339dd77c610a41758a0dedde418a1ab52a3d5",
+          "commitUrl": "https://github.com/n8watkins/mailroom/commit/21a339dd77c610a41758a0dedde418a1ab52a3d5"
+        }
+      ],
+      "source": "release",
+      "unattributed": 0
+    },
+    {
       "version": "0.1.0",
       "tag": "v0.1.0",
       "date": "2026-11-10",

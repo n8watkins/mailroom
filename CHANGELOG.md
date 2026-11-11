@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.0 - 2026-11-10
+
+### New
+
+- Run your own mailroom: apps and Cloudflare resources move into a per-deployment config ([#9](https://github.com/n8watkins/mailroom/pull/9))
+
 ## 0.1.0 - 2026-11-10
 
 ### New
