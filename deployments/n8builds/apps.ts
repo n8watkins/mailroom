@@ -65,7 +65,15 @@ export const APPS = {
     senders: [],
     kinds: ["signin", "account", "tenant"],
     priority: ["signin"],
-    caps: { day: 170, month: 250, recipientDay: 40 },
+    // Lowered to make room for Tend and n8builds-news; restore at Hosted launch.
+    caps: { day: 100, month: 100, recipientDay: 40 },
+  },
+  // The n8builds.dev blog newsletter (n8builds-web): a confirm-your-address email
+  // and a weekly digest, sent only in weeks with a post.
+  "n8builds-news": {
+    senders: ["news@n8builds.dev"],
+    kinds: ["confirm", "digest"],
+    caps: { day: 40, month: 150, recipientDay: 3 },
   },
   // Tend (n8watkins/tend, tend.n8builds.dev): sign-in links and reminders.
   tend: {
