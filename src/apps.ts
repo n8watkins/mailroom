@@ -34,6 +34,8 @@ export interface AppConfig {
 }
 
 export const APPS: Record<string, AppConfig> = {
+  // PR Post: the paper Worker (n8watkins/pr-post) sends the digest and Who to follow
+  // emails for its jobs and receives bounces at its EmailEvents entrypoint.
   prpost: {
     senders: ["prpost@n8builds.dev"],
     kinds: ["digest", "follow"],
