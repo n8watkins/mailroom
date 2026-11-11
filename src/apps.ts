@@ -82,9 +82,10 @@ export const APPS: Record<string, AppConfig> = {
   // OpenPing Hosted: sign-in codes, account emails and each tenant's alerts.
   // It sends from the Hosted domain, which is added here once it is bought and
   // onboarded for Email Sending; until then every send is refused.
+  // Its kinds are the platform's three streams (open-ping platform/src/mail.ts).
   "openping-hosted": {
     senders: [],
-    kinds: ["signin", "account", "alert", "summary", "report"],
+    kinds: ["signin", "account", "tenant"],
     priority: ["signin"],
     caps: { day: 200, month: 2000, recipientDay: 40 },
   },

@@ -26,8 +26,10 @@ queue "mailroom-email-events" (Email Sending subscription per sending domain) â”
 - **Idempotency.** A send with a `key` (a job id) goes out at most once; a retry gets `{ ok: true, duplicate: true }`.
 - **Events.** A consumer on the `mailroom-email-events` queue stores every Email Sending event, matches it to the app by message id (or by sender), and calls the app's `onEmailEvent` hook for bounces, complaints, rejections and failures.
   Apps without a hook read their events with `events()`.
-- **Usage.** `usage()` returns sends today and this month per app against its caps, and bounces, complaints and failures over 30 days, with no addresses.
-  The n8builds-admin dashboard reads it.
+- **Usage.** `usage()` returns, per app, sends through mailroom today and this month against its caps, the messages Email Sending delivered or bounced this month (from the event subscription, so apps that still send with their own binding count too), and bounces, complaints and failures over 30 days, plus the account's total for the month against its 3,000 included emails (`MONTHLY_INCLUDED`).
+  Recipient addresses are never in it.
+  The n8builds-admin dashboard reads it through its own service binding.
+  The monthly count is an upper bound: Cloudflare does not bill sends to verified Email Routing addresses (the owner's own inbox), and they are counted here.
 
 There is no public URL: `workers_dev` is off and the `fetch` handler answers 404.
 

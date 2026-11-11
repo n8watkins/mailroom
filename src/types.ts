@@ -61,8 +61,15 @@ export interface MailEvent {
 /** One app's numbers for the usage view. */
 export interface AppUsage {
   app: string;
+  /** Sent through mailroom today and this month (UTC), the numbers its caps count. */
   today: number;
   month: number;
+  /**
+   * Messages from the app's senders that Email Sending delivered or bounced
+   * this month, from the event subscription: counts apps that still send with
+   * their own binding too. What the account's monthly allowance counts.
+   */
+  sentMonth: number;
   caps: { day: number; month: number; recipientDay: number };
   bounces30d: number;
   complaints30d: number;
@@ -71,9 +78,19 @@ export interface AppUsage {
 
 export interface Usage {
   generatedAt: string;
+  /** The first day of the month the monthly numbers count from (UTC, YYYY-MM-DD). */
+  monthStart: string;
+  /** When the first event arrived (epoch ms), or null: monthly numbers start there. */
+  eventsSince: number | null;
   globalToday: number;
   globalDayCap: number;
   priorityReserve: number;
+  /** Emails a month the account's plan includes before overage (3,000 on Workers Paid). */
+  monthlyIncluded: number;
+  /** Every delivered or bounced message this month on subscribed domains, apps and others together. */
+  accountMonth: number;
+  /** Delivered or bounced this month from senders no app owns, by sender address. */
+  otherSenders: Array<{ sender: string; sentMonth: number }>;
   suppressions: number;
   apps: AppUsage[];
 }
@@ -85,6 +102,8 @@ export interface Env {
   GLOBAL_DAY_CAP: string;
   /** Part of GLOBAL_DAY_CAP only priority kinds (sign-in links) may use. */
   PRIORITY_RESERVE: string;
+  /** Emails a month the account's plan includes (3,000 on Workers Paid), for the usage view. */
+  MONTHLY_INCLUDED?: string;
   [hook: `HOOK_${string}`]: EmailEventHook | undefined;
 }
 
