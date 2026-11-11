@@ -26,6 +26,7 @@ export type SendErrorCode =
   | "sender_not_allowed"
   | "kind_not_allowed"
   | "suppressed"
+  | "paused"
   | "in_progress"
   | "cap_recipient"
   | "cap_app_day"
@@ -70,7 +71,12 @@ export interface AppUsage {
    * their own binding too. What the account's monthly allowance counts.
    */
   sentMonth: number;
+  /** The caps in force: `day` is the owner's override when one is set. */
   caps: { day: number; month: number; recipientDay: number };
+  /** The daily cap from src/apps.ts, without the override. */
+  defaultDayCap: number;
+  /** True while the owner has paused this app's email. */
+  paused: boolean;
   bounces30d: number;
   complaints30d: number;
   failed30d: number;
