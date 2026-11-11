@@ -17,7 +17,7 @@ export interface EmailSendingEvent {
     bounce?: { type?: string; classification?: string; reason?: string };
     failure?: { reason?: string };
     rejection?: { reason?: string };
-    complaint?: { reason?: string; feedbackType?: string };
+    complaint?: { type?: string; reason?: string; feedbackType?: string };
   };
   metadata?: { eventTimestamp?: string };
 }
@@ -79,15 +79,20 @@ export async function handleEvent(raw: EmailSendingEvent, deps: EventDeps): Prom
     recipient: p.recipient ? normalizeAddress(p.recipient) : null,
     bounceType: p.bounce?.type ?? null,
     smtpStatus: p.delivery?.smtpEnhancedStatusCode ?? p.delivery?.smtpStatusCode ?? null,
-    reason: p.bounce?.reason ?? p.failure?.reason ?? p.rejection?.reason ?? p.complaint?.reason ?? p.delivery?.smtpResponse ?? null,
+    reason: p.bounce?.reason ?? p.failure?.reason ?? p.rejection?.reason ?? p.complaint?.reason ?? p.complaint?.type ?? p.delivery?.smtpResponse ?? null,
     occurredAt: raw.metadata?.eventTimestamp ?? null,
     suppressed: reason !== null,
   };
 
+  // received_at is the cursor of events(): each app's values are kept strictly
+  // increasing (one statement, so atomic in D1), so a page can't end inside a
+  // run of equal values and skip the rest of it.
   await db
     .prepare(
       `INSERT INTO email_events (event_id, app, type, message_id, sender, recipient, bounce_type, smtp_status, reason, occurred_at, received_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (event_id) DO NOTHING`,
+       VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10,
+         MAX(?11, COALESCE((SELECT MAX(received_at) + 1 FROM email_events WHERE app = ?2), 0)))
+       ON CONFLICT (event_id) DO NOTHING`,
     )
     .bind(event.eventId, app, type, event.messageId, event.sender, event.recipient, event.bounceType, event.smtpStatus, event.reason, event.occurredAt, now)
     .run();
