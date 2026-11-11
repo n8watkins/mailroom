@@ -55,8 +55,11 @@
     "PRIORITY_RESERVE": "150",
     // Emails a month Workers Paid includes before $0.35 per 1,000, for the usage view.
     "MONTHLY_INCLUDED": "3000"
-  }
-  // App hooks for bounce and complaint events are added here as each app
-  // migrates, for example:
-  //   "services": [{ "binding": "HOOK_PRPOST", "service": "pull-request-post", "entrypoint": "EmailEvents" }]
+  },
+  // Each app's hook for its bounces and complaints (the `hook` in src/apps.ts),
+  // added as the app moves onto mailroom. Deploy the app's entrypoint first.
+  "services": [
+    // PR Post's paper: worker/main.js in n8watkins/pr-post.
+    { "binding": "HOOK_PRPOST", "service": "pull-request-post", "entrypoint": "EmailEvents" }
+  ]
 }
