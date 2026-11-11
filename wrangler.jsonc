@@ -52,7 +52,9 @@
   "vars": {
     // The account's Email Sending limit is 1,000 a day today (GET /email/sending/limits).
     "GLOBAL_DAY_CAP": "900",
-    "PRIORITY_RESERVE": "150"
+    "PRIORITY_RESERVE": "150",
+    // Emails a month Workers Paid includes before $0.35 per 1,000, for the usage view.
+    "MONTHLY_INCLUDED": "3000"
   }
   // App hooks for bounce and complaint events are added here as each app
   // migrates, for example:
