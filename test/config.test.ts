@@ -17,7 +17,17 @@ describe("deployments", () => {
       expect(deployment.apps, `${deployment.config} needs "alias": { "mailroom:apps": "<its apps file>" }`).toBeTruthy();
       const apps = appsAt(deployment.apps!);
       expect(apps, `${deployment.apps} must be apps.config.ts or deployments/<name>/apps.ts and export APPS`).toBeTruthy();
-      expect(checkApps(apps!, { allowedSenders: deployment.allowedSenders ?? undefined, services: deployment.services })).toEqual([]);
+      expect(checkApps(apps!, { allowedSenders: deployment.allowedSenders ?? undefined, services: deployment.services, globalDayCap: deployment.globalDayCap, globalMonthCap: deployment.globalMonthCap })).toEqual([]);
+    });
+
+    it(`${deployment.config} sets caps the account can't overspend`, () => {
+      // Under the plan's 3,000 included emails a month, and the apps' monthly caps within the all-app cap.
+      expect(Number.isInteger(deployment.globalDayCap) && deployment.globalDayCap > 0).toBe(true);
+      expect(deployment.globalMonthCap).toBeGreaterThan(0);
+      expect(deployment.globalMonthCap).toBeLessThan(3000);
+      const apps = appsAt(deployment.apps!)!;
+      const monthly = Object.values(apps).reduce((sum, app) => sum + app.caps.month, 0);
+      expect(monthly, "the apps' monthly caps add up to more than GLOBAL_MONTH_CAP").toBeLessThanOrEqual(deployment.globalMonthCap);
     });
   }
 });
@@ -48,6 +58,16 @@ describe("checkApps", () => {
       'c: "b@x.test" is missing from the send_email binding\'s allowed_sender_addresses.',
       'c: "b@x.test" is also a sender of Bad; each sender belongs to one app.',
       'c: hook "PRPOST" must be a binding name starting with HOOK_.',
+    ]);
+  });
+
+  it("refuses daily or monthly caps that add up to more than the all-app caps", () => {
+    const two: Apps = { ...ok, b: { ...ok.a!, senders: ["b@x.test"], caps: { day: 2, month: 3, recipientDay: 1 } } };
+    const bindings = { services: ["HOOK_A"] };
+    expect(checkApps(two, { ...bindings, globalDayCap: 4, globalMonthCap: 6 })).toEqual([]);
+    expect(checkApps(two, { ...bindings, globalDayCap: 3, globalMonthCap: 5 })).toEqual([
+      "The apps' daily caps add up to 4, over GLOBAL_DAY_CAP (3).",
+      "The apps' monthly caps add up to 6, over GLOBAL_MONTH_CAP (5).",
     ]);
   });
 });

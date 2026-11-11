@@ -1,6 +1,7 @@
 import { env } from "cloudflare:workers";
 import { beforeEach, describe, expect, it } from "vitest";
-import { classifyBindingError, sendFor } from "../src/send";
+import { usageReport } from "../src/index";
+import { classifyBindingError, monthCaps, sendFor } from "../src/send";
 import { fakeEmail, resetDb, testEnv, TEST_APPS } from "./helpers";
 
 const NOW = Date.UTC(2026, 10, 10, 12, 0, 0);
@@ -104,6 +105,78 @@ describe("send", () => {
     expect(await send("beta", { ...base, kind: "notice", to: "c@example.net" })).toMatchObject({ ok: false, code: "cap_global_day" });
     expect(await send("alpha", { ...base, kind: "signin", to: "c@example.net" })).toMatchObject({ ok: true });
     expect(await send("alpha", { ...base, kind: "signin", to: "d@example.net" })).toMatchObject({ ok: false, code: "cap_global_day" });
+  });
+
+  describe("the all-app monthly cap", () => {
+    const notice = (to: string) => ({ ...base, kind: "notice", to });
+    const signin = (to: string) => ({ ...base, kind: "signin", to });
+
+    it("refuses at the cap with cap_global_month and keeps a reserve for sign-in", async () => {
+      const { email, send } = setup({ GLOBAL_MONTH_CAP: "4", PRIORITY_MONTH_RESERVE: "1" });
+      for (const n of [1, 2, 3]) expect(await send("beta", notice(`r${n}@example.net`))).toMatchObject({ ok: true });
+      // 3 of 4 used: the last one is the sign-in reserve.
+      expect(await send("beta", notice("r4@example.net"))).toEqual({
+        ok: false,
+        code: "cap_global_month",
+        retryable: true,
+        message: expect.stringContaining("month"),
+      });
+      expect(await send("alpha", signin("s1@example.net"))).toMatchObject({ ok: true });
+      expect(await send("alpha", signin("s2@example.net"))).toMatchObject({ ok: false, code: "cap_global_month" });
+      expect(email.sent).toHaveLength(4);
+      // A refusal gives back what the earlier rules took.
+      const app = await env.DB.prepare("SELECT n FROM counters WHERE key = 'app:beta:2026-11-10'").first<{ n: number }>();
+      expect(app?.n).toBe(3);
+      const row = await env.DB.prepare("SELECT status, error FROM sends WHERE recipient = 'r4@example.net'").first();
+      expect(row).toEqual({ status: "failed", error: "cap_global_month" });
+    });
+
+    it("refuses everything with a cap of 0", async () => {
+      const { email, send } = setup({ GLOBAL_MONTH_CAP: "0", PRIORITY_MONTH_RESERVE: "0" });
+      expect(await send("alpha", signin("s@example.net"))).toMatchObject({ ok: false, code: "cap_global_month" });
+      expect(email.sent).toHaveLength(0);
+    });
+
+    it("counts a rolling 32-day window across calendar months, not the calendar month", async () => {
+      const { send } = setup({ GLOBAL_MONTH_CAP: "2", PRIORITY_MONTH_RESERVE: "0" });
+      const day = (n: number) => NOW + n * 24 * 3600_000;
+      expect(await send("beta", notice("a@example.net"), day(0))).toMatchObject({ ok: true }); // Nov 10
+      expect(await send("beta", notice("b@example.net"), day(25))).toMatchObject({ ok: true }); // Dec 5
+      // A new calendar month frees nothing: Nov 10 is still in the window on Dec 11.
+      expect(await send("beta", notice("c@example.net"), day(31))).toMatchObject({ ok: false, code: "cap_global_month" });
+      // On Dec 12, Nov 10 has left the 32-day window.
+      expect(await send("beta", notice("c@example.net"), day(32))).toMatchObject({ ok: true });
+      expect(await send("beta", notice("d@example.net"), day(32))).toMatchObject({ ok: false, code: "cap_global_month" });
+    });
+
+    it("holds under concurrent sends", async () => {
+      const { email, send } = setup({ GLOBAL_MONTH_CAP: "5", PRIORITY_MONTH_RESERVE: "0" });
+      const results = await Promise.all(Array.from({ length: 20 }, (_, n) => send("beta", notice(`c${n}@example.net`))));
+      expect(results.filter((r) => r.ok)).toHaveLength(5);
+      expect(results.filter((r) => !r.ok && r.code === "cap_global_month")).toHaveLength(15);
+      expect(email.sent).toHaveLength(5);
+      const total = await env.DB.prepare("SELECT SUM(n) AS n FROM counters WHERE key LIKE 'globalm:%'").first<{ n: number }>();
+      expect(total?.n).toBe(5);
+    });
+
+    it("falls back to 2,500 with 300 for sign-in when unset, never to unlimited", () => {
+      expect(monthCaps(testEnv({ GLOBAL_MONTH_CAP: undefined, PRIORITY_MONTH_RESERVE: undefined }))).toEqual({ cap: 2500, priorityReserve: 300, warnAt: 2000 });
+      expect(monthCaps(testEnv({ GLOBAL_MONTH_CAP: "lots", PRIORITY_MONTH_RESERVE: "-1" }))).toEqual({ cap: 2500, priorityReserve: 300, warnAt: 2000 });
+      expect(monthCaps(testEnv({ GLOBAL_MONTH_CAP: "100", PRIORITY_MONTH_RESERVE: "500" }))).toEqual({ cap: 100, priorityReserve: 100, warnAt: 80 });
+    });
+
+    it("flags the admin at 80% of the cap, without emailing anyone", async () => {
+      const e = { GLOBAL_MONTH_CAP: "10", PRIORITY_MONTH_RESERVE: "0" };
+      const { email, send } = setup(e);
+      for (let n = 0; n < 7; n++) await send("beta", notice(`f${n}@example.net`));
+      let usage = await usageReport(testEnv(e), NOW);
+      expect(usage.globalMonth).toMatchObject({ used: 7, cap: 10, warnAt: 8, attention: false, attentionSince: null, windowStart: "2026-10-10", windowDays: 32 });
+      await send("beta", notice("f7@example.net"), NOW + 1000);
+      await send("beta", notice("f8@example.net"), NOW + 2000);
+      usage = await usageReport(testEnv(e), NOW + 3000);
+      expect(usage.globalMonth).toMatchObject({ used: 9, attention: true, attentionSince: NOW + 1000 });
+      expect(email.sent).toHaveLength(9);
+    });
   });
 
   it("refuses suppressed addresses and learns Cloudflare's suppressions", async () => {

@@ -55,6 +55,8 @@ export function testEnv(overrides: Partial<Env> & Record<string, unknown> = {}):
     EMAIL: fakeEmail() as unknown as SendEmail,
     GLOBAL_DAY_CAP: "900",
     PRIORITY_RESERVE: "150",
+    GLOBAL_MONTH_CAP: "2500",
+    PRIORITY_MONTH_RESERVE: "300",
     ...overrides,
   } as Env;
 }

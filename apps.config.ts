@@ -14,13 +14,13 @@ export const APPS = {
     senders: ["hello@example.com"],
     kinds: ["signin", "welcome"],
     priority: ["signin"],
-    caps: { day: 200, month: 3000, recipientDay: 10 },
+    caps: { day: 200, month: 1800, recipientDay: 10 },
   },
   // A shop: receipts and shipping updates. Add `hook: "HOOK_SHOP"` once the
   // shop exports an EmailEvents entrypoint and wrangler.jsonc binds it.
   shop: {
     senders: ["orders@example.com"],
     kinds: ["receipt", "shipping"],
-    caps: { day: 100, month: 1500, recipientDay: 5 },
+    caps: { day: 100, month: 700, recipientDay: 5 },
   },
 } satisfies Apps;

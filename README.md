@@ -7,7 +7,7 @@
 </p>
 
 One Cloudflare Worker that sends email for all your apps through [Cloudflare Email Service](https://developers.cloudflare.com/email-service/).
-Each app gets its own caps (per recipient, per day, per month), and one shared cap keeps the whole account under its daily limit.
+Each app gets its own caps (per recipient, per day, per month), and shared caps keep the whole account under its daily limit and inside the emails its plan includes each month, so Email Sending never bills.
 A suppression list stops every app from mailing an address that bounced or complained.
 Idempotency keys make retries safe, and bounce and complaint events go back to the app that sent the message.
 An admin entrypoint lets a dashboard see what was sent, pause an app or change its cap.
@@ -18,7 +18,7 @@ They hand mailroom a finished email over a [service binding](https://developers.
 ```text
 app Worker ──service binding (props.app)──▶ Mailroom.send({ kind, to, subject, text, html, key })
 mailroom: app's sender allowlist ▸ kind allowlist ▸ suppression list ▸ idempotency key
-          ▸ caps (recipient/day, app/day, app/month, all apps/day) ▸ env.EMAIL.send()
+          ▸ caps (recipient/day, app/day, app/month, all apps/day, all apps/month) ▸ env.EMAIL.send()
 queue "mailroom-email-events" (Email Sending subscription per sending domain) ──▶ mailroom.queue()
           ▸ store the event ▸ suppress hard bounces and complaints ▸ app's onEmailEvent hook
 ```
@@ -104,6 +104,7 @@ An `"@yourdomain.com"` sender lets an app use any address on that domain; the bi
 `npm test` checks your apps against `wrangler.jsonc`: senders allowed, hooks bound, caps in order.
 
 Set `GLOBAL_DAY_CAP` under your account's Email Sending daily limit (it's in the dashboard).
+Set `GLOBAL_MONTH_CAP` under the emails your plan includes (2,500 against the 3,000 on Workers Paid), and keep your apps' `month` caps adding up to at most that: `npm test` fails when they don't.
 
 ### 4. Deploy
 
@@ -204,12 +205,29 @@ That's how my own mailroom is set up.
 
 ### Caps
 
-Every send checks four counters, all atomic D1 upserts:
+Every send checks five counters, all atomic D1 upserts:
 
 - **Per recipient per UTC day**, per app (`recipientDay`), so a bug can't flood one inbox.
 - **Per app per UTC day and per UTC month** (`day`, `month`).
 - **All apps per UTC day** (`GLOBAL_DAY_CAP`), kept under the account's Email Sending limit.
   The last `PRIORITY_RESERVE` of it is only for `priority` kinds, such as sign-in links.
+- **All apps per month** (`GLOBAL_MONTH_CAP`, 2,500 when unset), so the account never sends past the 3,000 emails Workers Paid includes and never pays for email.
+  The last `PRIORITY_MONTH_RESERVE` (300 when unset) is only for `priority` kinds, so sign-in links keep working for the rest of the month after the other email stops.
+  At the cap a send is refused with `cap_global_month`.
+
+The monthly cap counts a rolling window of the last 32 UTC days, today included, not the calendar month.
+Cloudflare resets the included emails with the account's billing cycle, which can start on any day and at any hour.
+With a calendar-month cap, a cycle that starts mid-month would see what is left of one month's cap and all of the next, up to twice the cap.
+A billing cycle lasts at most 31 days, so it touches at most 32 UTC days, all inside one window: no cycle can hold more than the cap, whatever its start.
+The 500 below 3,000 is a buffer for what mailroom can't count, such as an app that still sends with its own binding.
+
+Each app's `month` cap is its slice of `GLOBAL_MONTH_CAP`, and its `day` cap its slice of `GLOBAL_DAY_CAP`: `npm test` fails when the slices add up to more, so one app can't spend another's share.
+
+When the window reaches 80% of `GLOBAL_MONTH_CAP`, mailroom records it and `usage().globalMonth.attention` turns true, for the admin to show "Needs attention".
+Nobody is emailed.
+
+Sends to verified Email Routing destination addresses (your own inbox) are free and don't count toward Cloudflare's quota or daily limit.
+mailroom counts them anyway: it can't tell whether an address is still verified, and counting a free send only leaves more unused, while missing a paid one could cost money.
 
 A send that fails gives its units back.
 A refused send returns a `cap_*` code and says whether retrying later can help.
@@ -231,6 +249,7 @@ A consumer on the `mailroom-email-events` queue stores every Email Sending event
 It matches each event to the app by message id, or by sender when the message didn't go through mailroom, and calls that app's hook for bounces, complaints, rejections and failures.
 
 `usage()` counts each app's sends today and this month against its caps, plus what Email Sending delivered or bounced this month, so apps that still send with their own binding show up too.
+`globalMonth` holds the all-app monthly window: `used`, `cap`, `priorityReserve`, `windowStart`, `warnAt`, and `attention` with `attentionSince`.
 Sends to verified Email Routing addresses (your own inbox) are free and Cloudflare publishes no event for them, so they are not in the monthly count; mailroom's own day and month counters, which its caps use, do include them.
 
 ### Retention
@@ -270,7 +289,7 @@ If people you don't fully trust can deploy Workers in the account, run mailroom 
 Say an app already sends through its own `send_email` binding with a local daily cap (an `email_sends` count table and `EMAIL_DAILY_CAP`).
 The move keeps exactly one effective limit in force at every moment: never two different limits, never none.
 
-1. **Match the caps first.** In mailroom's apps file, set the app's `caps.day` to its current `EMAIL_DAILY_CAP`, and `caps.month` to at least 31 times that, so mailroom adds no new, tighter limit.
+1. **Match the caps first.** In mailroom's apps file, set the app's `caps.day` to its current `EMAIL_DAILY_CAP`, and `caps.month` to what it sends in a month with room to spare, within what's left of `GLOBAL_MONTH_CAP`, so mailroom adds no new limit the app would hit.
    Deploy mailroom.
 2. **Switch the transport behind a flag.** One app PR adds the `MAILROOM` binding and an `EMAIL_VIA` variable (`binding`, the default, or `mailroom`).
    With `mailroom`, the app sends through `env.MAILROOM.send()` and keeps its local cap check and count exactly as before.
@@ -291,7 +310,7 @@ The move keeps exactly one effective limit in force at every moment: never two d
 - **Caps are UTC.** Days and months roll over at midnight UTC, not your local midnight.
 - **One recipient per send.** No CC, BCC or batch sends; call `send()` once per person.
 - **No templates, no scheduling, no open or click tracking.** Apps render their own email and decide when to send it.
-- **Pricing.** Workers Paid includes 3,000 emails a month, then $0.35 per 1,000 (`MONTHLY_INCLUDED` drives the usage view only).
+- **Pricing.** Workers Paid includes 3,000 emails a month, then $0.35 per 1,000 (`MONTHLY_INCLUDED` drives the usage view only; `GLOBAL_MONTH_CAP` is what keeps you under it).
 - **It's run by one person.** I fix what breaks for my apps first.
   Issues and PRs are welcome, but there's no SLA.
 

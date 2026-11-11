@@ -32,6 +32,7 @@ export type SendErrorCode =
   | "cap_app_day"
   | "cap_app_month"
   | "cap_global_day"
+  | "cap_global_month"
   | "rate_limited"
   | "daily_limit"
   | "rejected"
@@ -91,6 +92,27 @@ export interface Usage {
   globalToday: number;
   globalDayCap: number;
   priorityReserve: number;
+  /**
+   * The all-app monthly cap, which keeps the account inside the emails its
+   * plan includes. It counts every send mailroom made in the last 32 UTC days
+   * (today included), so it holds for any billing cycle.
+   */
+  globalMonth: {
+    /** Sends counted in the window. */
+    used: number;
+    cap: number;
+    /** The last part of `cap` only priority kinds (sign-in links) may use. */
+    priorityReserve: number;
+    /** The first day the window counts (UTC, YYYY-MM-DD). */
+    windowStart: string;
+    windowDays: number;
+    /** `used` at or past this (80% of `cap`) needs attention. */
+    warnAt: number;
+    /** True while `used` is at or past `warnAt`: show "Needs attention". */
+    attention: boolean;
+    /** When use first crossed `warnAt` (epoch ms), while `attention` holds and it was recorded. */
+    attentionSince: number | null;
+  };
   /** Emails a month the account's plan includes before overage (3,000 on Workers Paid). */
   monthlyIncluded: number;
   /** Every delivered or bounced message this month on subscribed domains, apps and others together. */
@@ -108,6 +130,13 @@ export interface Env {
   GLOBAL_DAY_CAP: string;
   /** Part of GLOBAL_DAY_CAP only priority kinds (sign-in links) may use. */
   PRIORITY_RESERVE: string;
+  /**
+   * Sends in any 32 UTC days across every app (2,500 when unset): keep it
+   * under the emails the plan includes (3,000 on Workers Paid).
+   */
+  GLOBAL_MONTH_CAP?: string;
+  /** Part of GLOBAL_MONTH_CAP only priority kinds may use (300 when unset). */
+  PRIORITY_MONTH_RESERVE?: string;
   /** Emails a month the account's plan includes (3,000 on Workers Paid), for the usage view. */
   MONTHLY_INCLUDED?: string;
   [hook: `HOOK_${string}`]: EmailEventHook | undefined;

@@ -17,7 +17,8 @@
  * - `priority`: kinds that keep a reserved share of the account's daily limit
  *   (sign-in links), so a burst of digests can never lock people out.
  * - `caps`: hard limits per UTC day and per UTC calendar month for the app,
- *   and per recipient per UTC day.
+ *   and per recipient per UTC day. The apps' `day` caps together stay within
+ *   GLOBAL_DAY_CAP and their `month` caps within GLOBAL_MONTH_CAP.
  * - `hook`: the name of the service binding in the wrangler config that
  *   receives this app's bounce and complaint events (`onEmailEvent`). Apps
  *   without a hook read them with `events()`.
@@ -62,6 +63,9 @@ export interface DeploymentBindings {
   allowedSenders?: string[];
   /** The names of the deployment's service bindings. */
   services: string[];
+  /** GLOBAL_DAY_CAP and GLOBAL_MONTH_CAP from its vars: the apps' daily and monthly caps must fit inside them. */
+  globalDayCap?: number;
+  globalMonthCap?: number;
 }
 
 const APP_ID_RE = /^[a-z0-9][a-z0-9-]{0,62}$/;
@@ -105,6 +109,15 @@ export function checkApps(apps: Apps, bindings: DeploymentBindings): string[] {
       if (!app.hook.startsWith("HOOK_")) at(`hook "${app.hook}" must be a binding name starting with HOOK_.`);
       else if (!bindings.services.includes(app.hook)) at(`hook "${app.hook}" is not a service binding in the wrangler config.`);
     }
+  }
+  // Each app's cap is its slice of the all-app cap: the slices together must
+  // fit, so one app can never use up another's share.
+  const total = (key: "day" | "month") => Object.values(apps).reduce((sum, app) => sum + (app.caps?.[key] ?? 0), 0);
+  if (bindings.globalDayCap !== undefined && total("day") > bindings.globalDayCap) {
+    problems.push(`The apps' daily caps add up to ${total("day")}, over GLOBAL_DAY_CAP (${bindings.globalDayCap}).`);
+  }
+  if (bindings.globalMonthCap !== undefined && total("month") > bindings.globalMonthCap) {
+    problems.push(`The apps' monthly caps add up to ${total("month")}, over GLOBAL_MONTH_CAP (${bindings.globalMonthCap}).`);
   }
   return problems;
 }

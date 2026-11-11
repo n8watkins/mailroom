@@ -56,6 +56,12 @@
     // The account's Email Sending limit is 1,000 a day today (GET /email/sending/limits).
     "GLOBAL_DAY_CAP": "900",
     "PRIORITY_RESERVE": "150",
+    // Sends in any 32 UTC days across every app, under the 3,000 a month Workers
+    // Paid includes, so Email Sending never bills (README.md, "Caps"). The apps'
+    // monthly caps in apps.ts add up to at most this; npm test checks it.
+    "GLOBAL_MONTH_CAP": "2500",
+    // The part of GLOBAL_MONTH_CAP only priority kinds (sign-in links) may use.
+    "PRIORITY_MONTH_RESERVE": "300",
     // Emails a month Workers Paid includes before $0.35 per 1,000, for the usage view.
     "MONTHLY_INCLUDED": "3000"
   },

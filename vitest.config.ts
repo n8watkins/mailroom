@@ -28,6 +28,9 @@ function deployments() {
       apps: apps ? relative(root, resolve(root, dirname(config), apps)).replaceAll("\\", "/") : null,
       allowedSenders: c.send_email.find((b) => b.name === "EMAIL")?.allowed_sender_addresses ?? null,
       services: c.services?.map((s) => s.binding) ?? [],
+      globalDayCap: Number(c.vars?.GLOBAL_DAY_CAP),
+      // The default when unset (src/send.ts DEFAULT_GLOBAL_MONTH_CAP).
+      globalMonthCap: c.vars?.GLOBAL_MONTH_CAP === undefined ? 2500 : Number(c.vars.GLOBAL_MONTH_CAP),
     };
   });
 }
@@ -48,6 +51,8 @@ export default defineConfig({
         bindings: {
           GLOBAL_DAY_CAP: "900",
           PRIORITY_RESERVE: "150",
+          GLOBAL_MONTH_CAP: "2500",
+          PRIORITY_MONTH_RESERVE: "300",
           TEST_MIGRATIONS: await readD1Migrations(resolve(root, "migrations")),
           TEST_DEPLOYMENTS: deployments(),
         },

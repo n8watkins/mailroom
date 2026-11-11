@@ -52,6 +52,12 @@
     "GLOBAL_DAY_CAP": "900",
     // The part of GLOBAL_DAY_CAP only `priority` kinds (sign-in links) may use.
     "PRIORITY_RESERVE": "150",
+    // Sends in any 32 UTC days across all apps. Keep it under the emails your
+    // plan includes (3,000 a month on Workers Paid) so Email Sending never
+    // bills. Your apps' monthly caps must add up to at most this.
+    "GLOBAL_MONTH_CAP": "2500",
+    // The part of GLOBAL_MONTH_CAP only `priority` kinds (sign-in links) may use.
+    "PRIORITY_MONTH_RESERVE": "300",
     // Emails a month your plan includes (3,000 on Workers Paid), for the usage view.
     "MONTHLY_INCLUDED": "3000"
   },
