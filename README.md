@@ -29,7 +29,7 @@ queue "mailroom-email-events" (Email Sending subscription per sending domain) â”
 - **Usage.** `usage()` returns, per app, sends through mailroom today and this month against its caps, the messages Email Sending delivered or bounced this month (from the event subscription, so apps that still send with their own binding count too), and bounces, complaints and failures over 30 days, plus the account's total for the month against its 3,000 included emails (`MONTHLY_INCLUDED`).
   Recipient addresses are never in it.
   The n8builds-admin dashboard reads it through its own service binding.
-  The monthly count is an upper bound: Cloudflare does not bill sends to verified Email Routing addresses (the owner's own inbox), and they are counted here.
+  Sends to verified Email Routing addresses (the owner's own inbox) are free and Cloudflare publishes no event for them, so they are not in the monthly count; mailroom's own day and month counters, which its caps use, do include them.
 
 - **Retention.** A daily cron keeps each send's recipient, kind and time for 400 days, and what became of it (its events, message id and error) for 180 days, as the privacy policies of the apps that use mailroom state.
   The suppression list is kept until the owner removes an entry, so an address that bounced for good or complained gets no more email.
