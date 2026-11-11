@@ -1,5 +1,12 @@
 # Agent instructions
 
+## Deployments
+
+- The root `wrangler.jsonc` and `apps.config.ts` are the template others start from: keep them generic (example.com, placeholders).
+- The owner's live mailroom is `deployments/n8builds/` (`wrangler.jsonc` and `apps.ts`). App, sender, cap and hook changes for his apps go there.
+- Deploy it with `npm run deploy -- deployments/n8builds/wrangler.jsonc`. A bare `npm run deploy` targets the template and stops at its placeholders.
+- `npm test` checks every deployment's apps against its wrangler config, and `npm run check:deploy` dry-runs every deployment.
+
 <!-- release-kit -->
 ## Commits and releases
 

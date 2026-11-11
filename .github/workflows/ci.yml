@@ -1,7 +1,9 @@
 # Checks for every pull request and every push to main: typecheck, the
-# workerd/D1 tests and a deploy dry run. Commit messages are checked by
-# commits.yml (release-kit). Deploys run from the owner's machine
-# (`npm run deploy`), so this workflow holds no Cloudflare token.
+# workerd/D1 tests (which check every deployment's apps against its wrangler
+# config) and a deploy dry run of every deployment. Commit messages are checked
+# by commits.yml (release-kit). Deploys run from the owner's machine
+# (`npm run deploy -- deployments/n8builds/wrangler.jsonc`), so this workflow
+# holds no Cloudflare token.
 name: CI
 
 on:

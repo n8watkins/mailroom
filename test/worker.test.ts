@@ -30,7 +30,7 @@ describe("worker", () => {
     } as unknown as D1Database;
     const batch = {
       queue: "mailroom-email-events",
-      messages: [message("1", { type: "cf.email.sending.message.delivered", payload: { eventId: "e1", sender: "prpost@n8builds.dev" } })],
+      messages: [message("1", { type: "cf.email.sending.message.delivered", payload: { eventId: "e1", sender: "alpha@example.test" } })],
       ackAll() {},
       retryAll() {},
     } as unknown as MessageBatch;
@@ -56,14 +56,14 @@ describe("worker", () => {
     const now = Date.UTC(2026, 10, 10, 12);
     const lastMonth = Date.UTC(2026, 9, 31, 12);
     const rows: Array<[string, string | null, string, string, string, number]> = [
-      ["e1", "prpost", "delivered", "m1", "prpost@n8builds.dev", now],
-      ["e2", "prpost", "deferred", "m2", "prpost@n8builds.dev", now],
-      ["e3", "prpost", "delivered", "m2", "prpost@n8builds.dev", now],
-      ["e4", "prpost", "bounced", "m2", "prpost@n8builds.dev", now],
-      ["e5", "wren", "bounced", "m3", "wren@n8builds.dev", now],
-      ["e6", "wren", "delivered", "m4", "wren@n8builds.dev", lastMonth],
-      ["e7", null, "delivered", "m5", "hello@techforpros.com", now],
-      ["e8", "wren", "complained", "m6", "wren@n8builds.dev", now],
+      ["e1", "alpha", "delivered", "m1", "alpha@example.test", now],
+      ["e2", "alpha", "deferred", "m2", "alpha@example.test", now],
+      ["e3", "alpha", "delivered", "m2", "alpha@example.test", now],
+      ["e4", "alpha", "bounced", "m2", "alpha@example.test", now],
+      ["e5", "beta", "bounced", "m3", "beta@example.test", now],
+      ["e6", "beta", "delivered", "m4", "beta@example.test", lastMonth],
+      ["e7", null, "delivered", "m5", "other@example.org", now],
+      ["e8", "beta", "complained", "m6", "beta@example.test", now],
     ];
     await env.DB.batch(
       rows.map(([id, app, type, msg, sender, at]) =>
@@ -72,9 +72,9 @@ describe("worker", () => {
     );
     const usage = await usageReport(testEnv(), now);
     const byApp = Object.fromEntries(usage.apps.map((a) => [a.app, a]));
-    expect(byApp.prpost?.sentMonth).toBe(2);
-    expect(byApp.wren).toMatchObject({ sentMonth: 1, bounces30d: 1, complaints30d: 1 });
-    expect(usage.otherSenders).toEqual([{ sender: "hello@techforpros.com", sentMonth: 1 }]);
+    expect(byApp.alpha?.sentMonth).toBe(2);
+    expect(byApp.beta).toMatchObject({ sentMonth: 1, bounces30d: 1, complaints30d: 1 });
+    expect(usage.otherSenders).toEqual([{ sender: "other@example.org", sentMonth: 1 }]);
     expect(usage.accountMonth).toBe(4);
     expect(usage.monthStart).toBe("2026-11-01");
     expect(usage.eventsSince).toBe(lastMonth);

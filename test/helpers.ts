@@ -1,22 +1,11 @@
 import { env } from "cloudflare:workers";
 import { applyD1Migrations } from "cloudflare:test";
 import type { AppConfig } from "../src/apps";
+import { APPS } from "./apps";
 import type { EmailEventHook, Env, MailEvent } from "../src/types";
 
-export const TEST_APPS: Record<string, AppConfig> = {
-  alpha: {
-    senders: ["alpha@example.test", "@notify.example.test"],
-    kinds: ["signin", "digest"],
-    priority: ["signin"],
-    caps: { day: 3, month: 5, recipientDay: 2 },
-    hook: "HOOK_ALPHA",
-  },
-  beta: {
-    senders: ["beta@example.test"],
-    kinds: ["notice"],
-    caps: { day: 100, month: 100, recipientDay: 100 },
-  },
-};
+// The apps every test runs with: vitest.config.ts points `mailroom:apps` at test/apps.ts.
+export const TEST_APPS: Record<string, AppConfig> = APPS;
 
 export interface FakeEmail {
   sent: Array<Record<string, unknown>>;

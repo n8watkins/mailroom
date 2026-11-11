@@ -157,7 +157,7 @@ export async function setPaused(db: D1Database, app: string, paused: boolean, ac
   return { ok: true, detail };
 }
 
-/** Sets the app's daily cap, or puts back its default from src/apps.ts with `null`. At most the all-app daily cap. */
+/** Sets the app's daily cap, or puts back its default from the apps file with `null`. At most the all-app daily cap. */
 export async function setDailyCap(db: D1Database, env: Env, app: string, cap: number | null, actorIn: unknown, now = Date.now()): Promise<ActionResult> {
   const actor = cleanActor(actorIn);
   if (!actor) return { ok: false, error: "An actor is required." };
