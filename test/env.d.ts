@@ -5,7 +5,7 @@ declare global {
       GLOBAL_DAY_CAP: string;
       PRIORITY_RESERVE: string;
       TEST_MIGRATIONS: D1Migration[];
-      TEST_DEPLOYMENTS: Array<{ config: string; apps: string | null; allowedSenders: string[] | null; services: string[] }>;
+      TEST_DEPLOYMENTS: Array<{ config: string; apps: string | null; allowedSenders: string[] | null; services: string[]; globalDayCap: number; globalMonthCap: number }>;
     }
   }
 }

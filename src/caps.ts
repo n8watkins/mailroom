@@ -12,6 +12,41 @@ export interface CapRule {
   expiresAt: number;
   /** The code a refusal by this rule returns. */
   code: string;
+  /**
+   * A rolling window: the limit holds for the sum of every counter from
+   * `sumFrom` through `key` (keys sort by date), and `key` is today's.
+   */
+  sumFrom?: string;
+}
+
+/**
+ * The all-app monthly cap counts a rolling window of this many UTC days,
+ * today included. Cloudflare's included emails reset with the account's
+ * billing cycle, which need not start on the 1st or at UTC midnight. A
+ * billing cycle is at most 31 days, so it touches at most 32 UTC days, and
+ * every one of them falls inside one 32-day window: no billing cycle can hold
+ * more than the cap, whatever day it starts on. A calendar month cannot
+ * promise that, since a cycle that starts mid-month would see the end of one
+ * calendar month's allowance and the start of the next.
+ */
+export const MONTH_WINDOW_DAYS = 32;
+
+/** Today's key in the all-app monthly window, the first key it sums from, and when today's counter may go. */
+export function globalMonthWindow(now: number): { key: string; from: string; start: string; expiresAt: number } {
+  const today = dayWindow(now);
+  const start = dayWindow(now - (MONTH_WINDOW_DAYS - 1) * DAY_MS).id;
+  return {
+    key: `globalm:${today.id}`,
+    from: `globalm:${start}`,
+    start,
+    expiresAt: today.end + (MONTH_WINDOW_DAYS - 1) * DAY_MS,
+  };
+}
+
+/** The sum of the counters from `from` through `to` (keys of one kind, sorted by date). */
+export async function sumRange(db: D1Database, from: string, to: string): Promise<number> {
+  const row = await db.prepare("SELECT COALESCE(SUM(n), 0) AS n FROM counters WHERE key BETWEEN ? AND ?").bind(from, to).first<{ n: number }>();
+  return row?.n ?? 0;
 }
 
 export function dayWindow(now: number): { id: string; end: number } {
@@ -29,14 +64,25 @@ export function monthWindow(now: number): { id: string; end: number } {
 export async function reserve(db: D1Database, rules: CapRule[]): Promise<string | null> {
   const taken: CapRule[] = [];
   for (const rule of rules) {
-    const row = await db
-      .prepare(
-        `INSERT INTO counters (key, n, expires_at) VALUES (?1, 1, ?3)
-         ON CONFLICT (key) DO UPDATE SET n = n + 1 WHERE n < ?2
-         RETURNING n`,
-      )
-      .bind(rule.key, rule.limit, rule.expiresAt)
-      .first<{ n: number }>();
+    const row = await (rule.sumFrom === undefined
+      ? db
+          .prepare(
+            `INSERT INTO counters (key, n, expires_at) VALUES (?1, 1, ?3)
+             ON CONFLICT (key) DO UPDATE SET n = n + 1 WHERE n < ?2
+             RETURNING n`,
+          )
+          .bind(rule.key, rule.limit, rule.expiresAt)
+      : // One statement, so the check and the increment are atomic (D1 runs
+        // one write at a time): no row comes back when the window is full.
+        db
+          .prepare(
+            `INSERT INTO counters (key, n, expires_at)
+             SELECT ?1, 1, ?3 WHERE (SELECT COALESCE(SUM(n), 0) FROM counters WHERE key BETWEEN ?4 AND ?1) < ?2
+             ON CONFLICT (key) DO UPDATE SET n = n + 1
+             RETURNING n`,
+          )
+          .bind(rule.key, rule.limit, rule.expiresAt, rule.sumFrom)
+    ).first<{ n: number }>();
     // A fresh row starts at 1 even with a limit of 0, so check the limit here too.
     if (!row || row.n > rule.limit) {
       if (row) taken.push(rule);
