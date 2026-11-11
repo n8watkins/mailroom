@@ -65,6 +65,13 @@ export const APPS = {
     senders: [],
     kinds: ["signin", "account", "tenant"],
     priority: ["signin"],
-    caps: { day: 200, month: 400, recipientDay: 40 },
+    caps: { day: 170, month: 250, recipientDay: 40 },
+  },
+  // Tend (n8watkins/tend, tend.n8builds.dev): sign-in links and reminders.
+  tend: {
+    senders: ["tend@n8builds.dev"],
+    kinds: ["signin", "reminder"],
+    priority: ["signin"],
+    caps: { day: 30, month: 150, recipientDay: 8 },
   },
 } satisfies Apps;
