@@ -141,7 +141,7 @@ async function unclaim(db: D1Database, keys: string[]): Promise<void> {
  * recorded, so nothing retries), "failed" when the binding refused it (the
  * caller gives the threshold back for the next send to try again).
  */
-async function sendAlert(env: Env, now: number, subject: string, lines: string[], since: number, period: string): Promise<"sent" | "skipped" | "failed"> {
+export async function sendAlert(env: Env, now: number, subject: string, lines: string[], since: number, period: string): Promise<"sent" | "skipped" | "failed"> {
   const to = env.ALERT_TO?.trim();
   const from = env.ALERT_FROM?.trim();
   if (!to || !from) {

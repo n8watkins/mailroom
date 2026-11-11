@@ -281,6 +281,8 @@ A dashboard binds a second entrypoint, `MailroomAdmin`, which no app should bind
     Cloudflare keeps its own suppression list, so clear a hard bounce there too.
   - `setPaused(app, paused, actor)`: a paused app's sends are refused with `paused` until it's resumed.
   - `setDailyCap(app, cap, actor)` overrides the app's daily cap, from 0 up to `GLOBAL_DAY_CAP`; `null` puts the default back.
+  - `sendTestAlert(actor)` emails one "mailroom: test alert" to `ALERT_TO` the way a cap alert goes out, to check alerts reach you.
+    It counts toward the alert limits and claims no threshold, so every real alert still fires.
 
 ### The trust model
 

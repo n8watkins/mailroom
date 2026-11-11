@@ -1,4 +1,6 @@
+import { sendAlert } from "./alerts";
 import { APPS } from "./apps";
+import { globalMonthWindow, MONTH_WINDOW_DAYS } from "./caps";
 import type { Env } from "./types";
 
 /**
@@ -155,6 +157,32 @@ export async function setPaused(db: D1Database, app: string, paused: boolean, ac
     await audit(db, { actor, action: paused ? "app.pause" : "app.resume", app, detail, now }),
   ]);
   return { ok: true, detail };
+}
+
+/**
+ * Sends one "mailroom: test alert" email to ALERT_TO, the way a cap alert goes
+ * out, to check alerts reach the owner. It counts toward the alert limits, is
+ * recorded in `sends` like any alert, and claims no threshold, so every real
+ * alert still fires when its cap fills up.
+ */
+export async function sendTestAlert(env: Env, actorIn: unknown, now = Date.now()): Promise<ActionResult> {
+  const actor = cleanActor(actorIn);
+  if (!actor) return { ok: false, error: "An actor is required." };
+  if (!env.ALERT_TO?.trim() || !env.ALERT_FROM?.trim()) return { ok: false, error: "ALERT_TO and ALERT_FROM must both be set." };
+  const window = globalMonthWindow(now);
+  const lines = [
+    `This is a test of mailroom's cap alerts, sent by ${actor}. Nothing is wrong and no cap has changed.`,
+    "Real alerts come from this address at 70, 85, 95 and 100% of the all-app monthly cap, and when the daily cap is reached.",
+  ];
+  const result = await sendAlert(env, now, "mailroom: test alert", lines, Date.parse(`${window.start}T00:00:00Z`), `the last ${MONTH_WINDOW_DAYS} days`);
+  const detail =
+    result === "sent"
+      ? "Sent a test alert to the alert address"
+      : result === "skipped"
+        ? "Test alert not sent: the alert send limit is used up"
+        : "Test alert not sent: Email Sending refused it";
+  await (await audit(env.DB, { actor, action: "alert.test", app: null, detail, now })).run();
+  return result === "sent" ? { ok: true, detail } : { ok: false, error: detail };
 }
 
 /** Sets the app's daily cap, or puts back its default from the apps file with `null`. At most the all-app daily cap. */

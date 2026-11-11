@@ -1,5 +1,6 @@
 import { env } from "cloudflare:workers";
 import { beforeEach, describe, expect, it } from "vitest";
+import { auditLog, recentSends, sendTestAlert } from "../src/admin";
 import { ALERT_DAY_LIMIT, checkCapAlerts } from "../src/alerts";
 import { usageReport } from "../src/index";
 import { sendFor } from "../src/send";
@@ -113,6 +114,34 @@ describe("cap alerts", () => {
     expect(alerts()).toHaveLength(1);
     // Both thresholds crossed at once are recorded together.
     expect((await usageReport(e, NOW + 4)).globalMonth.alerts.map((a) => a.threshold)).toEqual([70, 85]);
+  });
+
+  it("sends a test alert to the owner only, with an audit entry, and claims no threshold", async () => {
+    const { e, email, send, alerts } = setup({ GLOBAL_MONTH_CAP: "10", PRIORITY_MONTH_RESERVE: "0" });
+    expect(await send("beta", notice("a@example.net"))).toMatchObject({ ok: true });
+    expect(await sendTestAlert(e, " ", NOW)).toEqual({ ok: false, error: "An actor is required." });
+    expect(await sendTestAlert(e, "owner", NOW)).toEqual({ ok: true, detail: "Sent a test alert to the alert address" });
+    expect(alerts()).toHaveLength(1);
+    expect(email.sent).toHaveLength(2);
+    const [test] = alerts();
+    expect(test).toMatchObject({ subject: "mailroom: test alert", from: { email: "alerts@example.test", name: "mailroom" } });
+    expect(test!.text).toContain("sent by owner. Nothing is wrong");
+    expect(test!.text).toContain("Top apps, the last 32 days:\n  beta: 1");
+    expect((await auditLog(env.DB))[0]).toMatchObject({ actor: "owner", action: "alert.test", app: null, detail: "Sent a test alert to the alert address" });
+    expect((await recentSends(env.DB))[0]).toMatchObject({ app: "mailroom", kind: "alert", status: "sent" });
+    // No threshold is claimed and the global caps don't count it: the real 70% alert still fires.
+    expect((await usageReport(e, NOW)).globalMonth).toMatchObject({ used: 1, alerts: [] });
+    for (let i = 1; i < 7; i++) await send("beta", notice(`r${i}@example.net`));
+    expect(alerts().map((m) => m.subject)).toEqual(["mailroom: test alert", "mailroom: monthly email cap at 70% (7 of 10)"]);
+  });
+
+  it("refuses a test alert without ALERT_TO, and past the alert limit", async () => {
+    expect(await sendTestAlert(setup({ ALERT_TO: undefined }).e, "owner", NOW)).toEqual({ ok: false, error: "ALERT_TO and ALERT_FROM must both be set." });
+    const { e, alerts } = setup();
+    for (let i = 0; i < ALERT_DAY_LIMIT; i++) expect(await sendTestAlert(e, "owner", NOW + i)).toMatchObject({ ok: true });
+    expect(await sendTestAlert(e, "owner", NOW + ALERT_DAY_LIMIT)).toEqual({ ok: false, error: "Test alert not sent: the alert send limit is used up" });
+    expect(alerts()).toHaveLength(ALERT_DAY_LIMIT);
+    expect((await auditLog(env.DB))[0]).toMatchObject({ action: "alert.test", detail: "Test alert not sent: the alert send limit is used up" });
   });
 
   it("records thresholds but emails nobody without ALERT_TO", async () => {
