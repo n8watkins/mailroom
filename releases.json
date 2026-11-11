@@ -1,0 +1,76 @@
+{
+  "$schema": "https://raw.githubusercontent.com/n8watkins/release-kit/main/schema/releases.v1.json",
+  "schemaVersion": 1,
+  "repository": "n8watkins/mailroom",
+  "releases": [
+    {
+      "version": "0.1.0",
+      "tag": "v0.1.0",
+      "date": "2026-11-10",
+      "time": "2026-11-11T03:31:13Z",
+      "url": "https://github.com/n8watkins/mailroom/releases/tag/v0.1.0",
+      "previous": null,
+      "summary": null,
+      "breaking": false,
+      "notes": [
+        {
+          "section": "new",
+          "type": "feat",
+          "scope": null,
+          "text": "First release: one Worker sends every app's email through",
+          "breaking": false,
+          "pr": null,
+          "prUrl": null,
+          "commit": "f370870a010c98fcedd8c770aeadeabb8464d8f0",
+          "commitUrl": "https://github.com/n8watkins/mailroom/commit/f370870a010c98fcedd8c770aeadeabb8464d8f0"
+        },
+        {
+          "section": "new",
+          "type": "feat",
+          "scope": null,
+          "text": "The usage view now counts every app's emails this month",
+          "breaking": false,
+          "pr": null,
+          "prUrl": null,
+          "commit": "d205daf0299aa98b30a06cf924887c52e92edc91",
+          "commitUrl": "https://github.com/n8watkins/mailroom/commit/d205daf0299aa98b30a06cf924887c52e92edc91"
+        },
+        {
+          "section": "new",
+          "type": "feat",
+          "scope": null,
+          "text": "The owner can now see recent sends and suppressions, pause",
+          "breaking": false,
+          "pr": null,
+          "prUrl": null,
+          "commit": "4c664e1f86cad75161353f9436e7337999eefbc3",
+          "commitUrl": "https://github.com/n8watkins/mailroom/commit/4c664e1f86cad75161353f9436e7337999eefbc3"
+        },
+        {
+          "section": "new",
+          "type": "feat",
+          "scope": null,
+          "text": "PR Post's paper now hears about bounced and complained",
+          "breaking": false,
+          "pr": null,
+          "prUrl": null,
+          "commit": "1dbb2d55852964a8cb418584a30ad43b6fd87f3b",
+          "commitUrl": "https://github.com/n8watkins/mailroom/commit/1dbb2d55852964a8cb418584a30ad43b6fd87f3b"
+        },
+        {
+          "section": "fixed",
+          "type": "fix",
+          "scope": null,
+          "text": "Sending is stricter about malformed senders and headers,",
+          "breaking": false,
+          "pr": null,
+          "prUrl": null,
+          "commit": "6bd05d87ce9c4c89e29723f4f51c5f386d008166",
+          "commitUrl": "https://github.com/n8watkins/mailroom/commit/6bd05d87ce9c4c89e29723f4f51c5f386d008166"
+        }
+      ],
+      "source": "release",
+      "unattributed": 0
+    }
+  ]
+}
