@@ -1,4 +1,4 @@
-import { readdirSync } from "node:fs";
+import { existsSync, readdirSync } from "node:fs";
 import { dirname, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -16,8 +16,8 @@ const root = fileURLToPath(new URL(".", import.meta.url));
 function deployments() {
   const configs = [
     "wrangler.jsonc",
-    ...readdirSync(resolve(root, "deployments"), { withFileTypes: true })
-      .filter((d) => d.isDirectory())
+    ...(existsSync(resolve(root, "deployments")) ? readdirSync(resolve(root, "deployments"), { withFileTypes: true }) : [])
+      .filter((d) => d.isDirectory() && existsSync(resolve(root, "deployments", d.name, "wrangler.jsonc")))
       .map((d) => `deployments/${d.name}/wrangler.jsonc`),
   ];
   return configs.map((config) => {
