@@ -4,6 +4,7 @@ import {
   problemEvents,
   recentSends,
   removeSuppression,
+  sendTestAlert,
   setDailyCap,
   setPaused,
   suppressionList,
@@ -104,6 +105,11 @@ export class MailroomAdmin extends WorkerEntrypoint<Env> {
 
   async setDailyCap(app: string, cap: number | null, actor: string): Promise<ActionResult> {
     return setDailyCap(this.env.DB, this.env, app, cap, actor);
+  }
+
+  /** Emails one "mailroom: test alert" to ALERT_TO, to check cap alerts arrive. Claims no threshold. */
+  async sendTestAlert(actor: string): Promise<ActionResult> {
+    return sendTestAlert(this.env, actor);
   }
 }
 
