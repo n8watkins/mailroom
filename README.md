@@ -1,10 +1,19 @@
 # mailroom
 
-One Cloudflare Worker that sends every app's transactional email through [Cloudflare Email Service](https://developers.cloudflare.com/email-service/).
-It holds the only `send_email` binding, enforces each app's caps, refuses addresses that bounced or complained, and hands Email Sending's bounce and complaint events back to the app that sent the message.
+<p align="center">
+  <img src="docs/board.svg" width="320" alt="A cork board with envelopes pinned to it, joined by red string">
+  <br>
+  <sub>Every email accounted for. <a href="https://knowyourmeme.com/memes/pepe-silvia">No Pepe Silvia required.</a></sub>
+</p>
+
+One Cloudflare Worker that sends email for all your apps through [Cloudflare Email Service](https://developers.cloudflare.com/email-service/).
+Each app gets its own caps (per recipient, per day, per month), and one shared cap keeps the whole account under its daily limit.
+A suppression list stops every app from mailing an address that bounced or complained.
+Idempotency keys make retries safe, and bounce and complaint events go back to the app that sent the message.
+An admin entrypoint lets a dashboard see what was sent, pause an app or change its cap.
 
 Apps keep their own templates.
-They pass mailroom a finished email over a [service binding](https://developers.cloudflare.com/workers/runtime-apis/bindings/service-bindings/rpc/), so no app holds an API key or a binding that could send as another app.
+They hand mailroom a finished email over a [service binding](https://developers.cloudflare.com/workers/runtime-apis/bindings/service-bindings/rpc/), so no app holds an API key or a binding that could send as another app.
 
 ```text
 app Worker ──service binding (props.app)──▶ Mailroom.send({ kind, to, subject, text, html, key })
@@ -14,138 +23,289 @@ queue "mailroom-email-events" (Email Sending subscription per sending domain) �
           ▸ store the event ▸ suppress hard bounces and complaints ▸ app's onEmailEvent hook
 ```
 
-## What it does
+## Who it's for
 
-- **Senders and kinds per app.** Each deployment's apps file lists each app's From addresses and the kinds of email it sends: [`apps.config.ts`](apps.config.ts) for the template [`wrangler.jsonc`](wrangler.jsonc), and [`deployments/n8builds/apps.ts`](deployments/n8builds/apps.ts) for the owner's mailroom.
-  The wrangler config points `mailroom:apps` at it (`alias`), and `npm test` checks it against that config.
-  Only transactional kinds belong there: Cloudflare Email Service forbids marketing, bulk and cold email, and one abusive stream would put every app's mail at risk.
-- **Hard caps.** Per recipient per UTC day, per app per UTC day and per UTC month, and one daily cap across all apps (`GLOBAL_DAY_CAP`, kept under the account's Email Sending limit).
-  A share of the global cap (`PRIORITY_RESERVE`) is kept for priority kinds such as sign-in links, so a burst of digests never locks anyone out.
-  Counters are atomic D1 upserts; a send that fails gives its units back.
-- **Suppression.** A hard bounce or a complaint from any app stops every app from mailing that address, as Cloudflare's own account-wide suppression list does.
-  A send Cloudflare refuses with `E_RECIPIENT_SUPPRESSED` is added too.
-- **Idempotency.** A send with a `key` (a job id) goes out at most once; a retry gets `{ ok: true, duplicate: true }`.
-- **Events.** A consumer on the `mailroom-email-events` queue stores every Email Sending event, matches it to the app by message id (or by sender), and calls the app's `onEmailEvent` hook for bounces, complaints, rejections and failures.
-  Apps without a hook read their events with `events()`.
-- **Usage.** `usage()` returns, per app, sends through mailroom today and this month against its caps, the messages Email Sending delivered or bounced this month (from the event subscription, so apps that still send with their own binding count too), and bounces, complaints and failures over 30 days, plus the account's total for the month against its 3,000 included emails (`MONTHLY_INCLUDED`).
-  Recipient addresses are never in it.
-  The n8builds-admin dashboard reads it through its own service binding.
-  Sends to verified Email Routing addresses (the owner's own inbox) are free and Cloudflare publishes no event for them, so they are not in the monthly count; mailroom's own day and month counters, which its caps use, do include them.
+You run a few apps on Cloudflare Workers, and each one needs to send a little email: sign-in links, receipts, notices, a weekly digest.
+You'd rather not hand every app its own email binding, its own cap and its own bounce handling.
 
-- **Retention.** A daily cron keeps each send's recipient, kind and time for 400 days, and what became of it (its events, message id and error) for 180 days, as the privacy policies of the apps that use mailroom state.
-  The suppression list is kept until the owner removes an entry, so an address that bounced for good or complained gets no more email.
-  Logs carry the app, kind and outcome, never an address or any email content.
+It's not for everything:
 
-There is no public URL: `workers_dev` and preview URLs are off, there are no routes, and the `fetch` handler answers 404.
+- **Transactional email only.** Cloudflare Email Service forbids marketing, bulk and cold email, and one abusive stream would put every app's mail at risk.
+  Newsletters belong on a marketing platform.
+- **Your sending domains must be on Cloudflare**, onboarded for Email Sending.
+- **Low to medium volume.** Every send is a few D1 writes, and the account has a daily sending limit (mine is 1,000 a day).
+  Thousands of emails a day is fine.
+  Millions is not what this is for.
+- **Workers only.** Apps reach mailroom through service bindings, so they have to be Workers in the same Cloudflare account.
 
-## The owner's dashboard
+## How I use it
 
-n8builds-admin binds a second entrypoint, `MailroomAdmin`, which no app binds:
+I run it for my own apps.
+It sends everything they mail out:
+
+- **[n8builds.dev](https://n8builds.dev)**: contact form and quote request notices, my replies, and waitlist confirmations.
+- **[PR Post](https://github.com/n8watkins/pr-post)**: the weekly digest and "who to follow" emails.
+  Its bounces come back to its own hook.
+- **A handful of smaller apps**: sign-in links, alerts and reports.
+
+Each app has its own sender and caps, and sign-in links keep a reserved share of the day so a busy digest never locks anyone out.
+
+My private admin dashboard has a Mailroom page on top of the admin entrypoint: the month at a glance against the 3,000 included emails, recent sends, bounces and complaints, the suppression list, every app's caps with pause and daily cap controls, and an audit log of every change.
+
+My live config is in [`deployments/n8builds/`](deployments/n8builds/), if you want a real example.
+
+## Quick start
+
+### What you need
+
+- A Cloudflare account on [Workers Paid](https://developers.cloudflare.com/workers/platform/pricing/), which Email Sending needs (3,000 emails a month included).
+- A domain on Cloudflare, onboarded for [Email Sending](https://developers.cloudflare.com/email-service/).
+- Node.js 22 or newer.
+
+### 1. Clone and install
+
+```bash
+git clone https://github.com/n8watkins/mailroom.git
+cd mailroom
+npm install
+npm test   # runs in workerd with a local D1; nothing is sent
+```
+
+### 2. Create the Cloudflare resources
+
+```bash
+npx wrangler login
+npx wrangler email sending enable yourdomain.com
+npx wrangler d1 create mailroom                     # copy the database id
+npx wrangler queues create mailroom-email-events
+npx wrangler queues create mailroom-email-events-dlq
+```
+
+Put the database id in [`wrangler.jsonc`](wrangler.jsonc) in place of `<your D1 database id>`.
+If your login has more than one account, add `"account_id"` there too, or set `CLOUDFLARE_ACCOUNT_ID`.
+
+### 3. Define your apps
+
+Your apps live in [`apps.config.ts`](apps.config.ts):
+
+```ts
+export const APPS = {
+  app: {
+    senders: ["hello@yourdomain.com"],          // From addresses; the first is the default
+    kinds: ["signin", "welcome"],               // what it sends
+    priority: ["signin"],                       // kinds that keep a reserved share of the day
+    caps: { day: 200, month: 3000, recipientDay: 10 },
+  },
+} satisfies Apps;
+```
+
+Then list every sender in the `send_email` binding's `allowed_sender_addresses` in `wrangler.jsonc`.
+An `"@yourdomain.com"` sender lets an app use any address on that domain; the binding still has to allow each one.
+`npm test` checks your apps against `wrangler.jsonc`: senders allowed, hooks bound, caps in order.
+
+Set `GLOBAL_DAY_CAP` under your account's Email Sending daily limit (it's in the dashboard).
+
+### 4. Deploy
+
+```bash
+npm run check:deploy   # dry run
+npm run deploy         # applies the D1 migrations, then deploys
+```
+
+`npm run deploy` refuses to run while `wrangler.jsonc` still has a `<your ...>` placeholder.
+
+### 5. Subscribe to delivery events
+
+One subscription per sending domain, so bounces and complaints reach mailroom:
+
+```bash
+npx wrangler queues subscription create mailroom-email-events --source email.sending \
+  --zone-id <zone id> --domain yourdomain.com --name mailroom-yourdomain \
+  --events message.delivered,message.deferred,message.bounced,message.failed,message.rejected,message.complained
+```
+
+### 6. Send from an app
+
+In the app's `wrangler.jsonc`, bind the `Mailroom` entrypoint and name the app with `props.app`:
+
+```jsonc
+"services": [
+  { "binding": "MAILROOM", "service": "mailroom", "entrypoint": "Mailroom", "props": { "app": "app" } }
+]
+```
+
+Then send:
+
+```ts
+const result = await env.MAILROOM.send({
+  kind: "signin",
+  to: "reader@example.com",
+  subject: "Your sign-in link",
+  text: "Plain text body",
+  html: "<p>HTML body</p>",
+  fromName: "My App",
+  key: "signin-8f2c41", // optional: the same key never sends twice
+});
+if (!result.ok) {
+  // result.code: suppressed, cap_app_day, rate_limited, ...
+  // Retry later only when result.retryable.
+}
+```
+
+`send()` never throws for a refused send.
+The request, result and event types are in [`src/types.ts`](src/types.ts); copy what you need into the app.
+A minimal binding type:
+
+```ts
+interface Env {
+  MAILROOM: {
+    send(request: SendRequest): Promise<SendResult>;
+    isSuppressed(address: string): Promise<boolean>;
+    events(opts?: { since?: number; limit?: number }): Promise<Array<MailEvent & { receivedAt: number }>>;
+  };
+}
+```
+
+### Get bounces and complaints back
+
+Either poll `events()` with the last `receivedAt` you saw, or export a hook from the app:
+
+```ts
+export class EmailEvents extends WorkerEntrypoint<Env> {
+  async onEmailEvent(event: MailEvent) {
+    // event.type: bounced | complained | rejected | failed
+    // event.suppressed is true when mailroom stopped mailing the address.
+  }
+}
+```
+
+Deploy the app first, then bind its hook in mailroom's `wrangler.jsonc` and name it in the app's `hook`:
+
+```jsonc
+"services": [{ "binding": "HOOK_SHOP", "service": "my-shop", "entrypoint": "EmailEvents" }]
+```
+
+A hook that throws is retried with backoff, up to 8 times, then the event goes to the dead-letter queue.
+Each event reaches the hook once, even when the queue delivers it twice.
+
+### Run more than one deployment
+
+The root `wrangler.jsonc` and `apps.config.ts` are the template.
+To keep a real deployment next to it, put its own pair in `deployments/<name>/` (the wrangler config points `mailroom:apps` at its `apps.ts` with `alias`), and deploy it by path:
+
+```bash
+npm run deploy -- deployments/<name>/wrangler.jsonc
+```
+
+`npm test` and `npm run check:deploy` cover every deployment in the folder.
+That's how my own mailroom is set up.
+
+## How it works
+
+### Caps
+
+Every send checks four counters, all atomic D1 upserts:
+
+- **Per recipient per UTC day**, per app (`recipientDay`), so a bug can't flood one inbox.
+- **Per app per UTC day and per UTC month** (`day`, `month`).
+- **All apps per UTC day** (`GLOBAL_DAY_CAP`), kept under the account's Email Sending limit.
+  The last `PRIORITY_RESERVE` of it is only for `priority` kinds, such as sign-in links.
+
+A send that fails gives its units back.
+A refused send returns a `cap_*` code and says whether retrying later can help.
+
+### Suppression list
+
+A hard bounce or a complaint from any app stops every app from mailing that address, the same way Cloudflare's own account-wide suppression list works.
+A send Cloudflare refuses with `E_RECIPIENT_SUPPRESSED` is added too.
+Entries stay until you remove one from the admin.
+
+### Idempotency
+
+A send with a `key` (a job id, say) goes out at most once per app.
+A retry gets `{ ok: true, duplicate: true }`, and a retry while the first is still sending gets `in_progress`.
+
+### Events
+
+A consumer on the `mailroom-email-events` queue stores every Email Sending event.
+It matches each event to the app by message id, or by sender when the message didn't go through mailroom, and calls that app's hook for bounces, complaints, rejections and failures.
+
+`usage()` counts each app's sends today and this month against its caps, plus what Email Sending delivered or bounced this month, so apps that still send with their own binding show up too.
+Sends to verified Email Routing addresses (your own inbox) are free and Cloudflare publishes no event for them, so they are not in the monthly count; mailroom's own day and month counters, which its caps use, do include them.
+
+### Retention
+
+A daily cron keeps each send's recipient, kind and time for 400 days, and what became of it (events, message id, error) for 180 days.
+Change `SENDS_KEEP_MS` and `STATUS_KEEP_MS` in [`src/index.ts`](src/index.ts) to match your privacy policy.
+Logs carry the app, kind and outcome, never an address or any email content.
+
+### The admin entrypoint
+
+A dashboard binds a second entrypoint, `MailroomAdmin`, which no app should bind:
 
 ```jsonc
 "services": [{ "binding": "MAILROOM", "service": "mailroom", "entrypoint": "MailroomAdmin" }]
 ```
 
-- **Reads:** `usage()`, `recentSends()` (time, app, kind, masked recipient, status), `problems()` (bounces, complaints, rejections and failures), `suppressions()` and `auditLog()`.
-  Addresses come back masked (`jo***@gmail.com`), inside SMTP replies too, and no email content is ever returned or stored.
-- **Changes**, each taking the signed-in owner as `actor` and written to `audit_log` in the same batch:
-  - `removeSuppression(id, actor)` lets mailroom mail an address again. Cloudflare keeps its own account-wide suppression list, so a hard bounce also has to be cleared there (Compute, Email Service, Suppressions) before mail reaches it.
-  - `setPaused(app, paused, actor)`: a paused app's sends are refused with `paused` (retryable) until it is resumed.
-  - `setDailyCap(app, cap, actor)` replaces the app's daily cap from the apps file, from 0 up to `GLOBAL_DAY_CAP`; `null` puts the default back.
+- **Reads:** `usage()`, `recentSends()`, `problems()` (bounces, complaints, rejections, failures), `suppressions()` and `auditLog()`.
+  Addresses come back masked (`jo***@gmail.com`), inside SMTP replies too, and email content is never stored.
+- **Changes** take the signed-in user as `actor` and are written to `audit_log` in the same batch:
+  - `removeSuppression(id, actor)` lets mailroom mail an address again.
+    Cloudflare keeps its own suppression list, so clear a hard bounce there too.
+  - `setPaused(app, paused, actor)`: a paused app's sends are refused with `paused` until it's resumed.
+  - `setDailyCap(app, cap, actor)` overrides the app's daily cap, from 0 up to `GLOBAL_DAY_CAP`; `null` puts the default back.
 
-## Calling it from an app
+### The trust model
 
-Add a service binding in the app's `wrangler.jsonc`; `props.app` is its id in mailroom's apps file:
+mailroom has no public URL: `workers_dev` and preview URLs are off, there are no routes, and `fetch` answers 404.
+The only way in is a service binding, and Cloudflare lets any Worker in the same account bind to any other.
 
-```jsonc
-"services": [
-  { "binding": "MAILROOM", "service": "mailroom", "entrypoint": "Mailroom", "props": { "app": "prpost" } }
-]
-```
+So the account is the boundary.
+Anyone who can deploy a Worker to your account can bind to `Mailroom` with any `props.app`, or to `MailroomAdmin`.
+`props.app` stops one of your apps from sending as another by mistake, not an attacker with deploy access.
+If people you don't fully trust can deploy Workers in the account, run mailroom in its own account.
 
-```ts
-const result = await env.MAILROOM.send({
-  kind: "digest",
-  to: "reader@example.com",
-  subject: "This week",
-  text: "Plain text body",
-  html: "<p>HTML body</p>",
-  fromName: "PR Post",
-  headers: { "List-Unsubscribe": "<https://example.com/u/abc>", "List-Unsubscribe-Post": "List-Unsubscribe=One-Click" },
-  key: "digest-2026-11-10-reader",
-});
-if (!result.ok) {
-  // result.code: suppressed, cap_app_day, rate_limited, ...; retry later only when result.retryable.
-}
-```
+## Moving an existing app onto mailroom
 
-`send()` never throws for a refused send.
-The result codes are in [`src/types.ts`](src/types.ts).
-
-To receive bounces and complaints, export a hook entrypoint from the app and add its binding to mailroom's `wrangler.jsonc` under the name in the app's `hook` field:
-
-```ts
-export class EmailEvents extends WorkerEntrypoint<Env> {
-  async onEmailEvent(event: MailEvent) {
-    // event.type: bounced | complained | rejected | failed; event.suppressed is true when mailroom stopped mailing the address.
-  }
-}
-```
-
-```jsonc
-"services": [{ "binding": "HOOK_PRPOST", "service": "pull-request-post", "entrypoint": "EmailEvents" }]
-```
-
-A hook that throws is retried by the queue with backoff, up to 8 times, then the event goes to `mailroom-email-events-dlq`.
-An event is passed to the hook once even when the queue delivers it twice.
-
-## Moving an app onto mailroom
-
-Several apps already send through their own `send_email` binding with a local daily cap (an `email_sends` count table and `EMAIL_DAILY_CAP`).
+Say an app already sends through its own `send_email` binding with a local daily cap (an `email_sends` count table and `EMAIL_DAILY_CAP`).
 The move keeps exactly one effective limit in force at every moment: never two different limits, never none.
 
-1. **Match the caps first.** In mailroom's apps file, set the app's `caps.day` to the app's current `EMAIL_DAILY_CAP`, and `caps.month` no lower than 31 times that (the longest month), so mailroom adds no new, tighter limit.
+1. **Match the caps first.** In mailroom's apps file, set the app's `caps.day` to its current `EMAIL_DAILY_CAP`, and `caps.month` to at least 31 times that, so mailroom adds no new, tighter limit.
    Deploy mailroom.
-2. **Switch the transport behind a flag.** One app PR adds the `MAILROOM` service binding and an `EMAIL_VIA` variable (`binding`, the default, or `mailroom`).
-   With `mailroom`, the app sends through `env.MAILROOM.send()` and keeps its local cap check and `email_sends` count exactly as before.
+2. **Switch the transport behind a flag.** One app PR adds the `MAILROOM` binding and an `EMAIL_VIA` variable (`binding`, the default, or `mailroom`).
+   With `mailroom`, the app sends through `env.MAILROOM.send()` and keeps its local cap check and count exactly as before.
    Both limits now hold the same number and count the same sends, so the effective limit is unchanged.
-   The app maps mailroom's `cap_*` codes to its own existing "daily cap" outcome.
+   The app maps mailroom's `cap_*` codes to its own "daily cap" outcome.
 3. **Verify.** Set `EMAIL_VIA=mailroom` and deploy.
-   Test emails of each kind reach the owner's inbox, and one bounce reaches the app (its hook or `events()`).
-   Flipping back to `binding` is a variable change, with the local cap still in force.
+   Send a test email of each kind to your own inbox, and check one bounce reaches the app.
+   Going back is a variable change, with the local cap still in force.
 4. **Remove the old path.** A second app PR removes the app's `send_email` binding, the direct-send code, `EMAIL_VIA`, `EMAIL_DAILY_CAP` and the local cap check.
-   mailroom has been enforcing the same cap since step 2, so there is no gap.
-   The `email_sends` table can stay for history and is dropped in a later migration.
-5. **Tune.** Only now change the app's caps in mailroom, for example to give it a share of the account's 3,000 included emails a month.
+   mailroom has enforced the same cap since step 2, so there's no gap.
+5. **Tune.** Only now change the app's caps in mailroom.
 
-mailroom's `send_email` binding already allows every app's sender; its `wrangler.jsonc` gains the app's `HOOK_*` binding once the app exports a hook.
+## Limits and caveats
 
-## Setup
-
-The Cloudflare resources (already created for the n8builds account):
-
-```bash
-npx wrangler d1 create mailroom                       # put the id in the deployment's wrangler.jsonc
-npx wrangler queues create mailroom-email-events
-npx wrangler queues create mailroom-email-events-dlq
-npm run deploy -- deployments/n8builds/wrangler.jsonc # applies migrations, then deploys
-# One subscription per sending domain:
-npx wrangler queues subscription create mailroom-email-events --source email.sending \
-  --zone-id <zone id> --domain n8builds.dev --name mailroom-n8builds-dev \
-  --events message.delivered,message.deferred,message.bounced,message.failed,message.rejected,message.complained
-```
-
-A new sending domain needs three things: onboarding for Email Sending in the dashboard, its senders in the apps file and in the `send_email` binding's `allowed_sender_addresses`, and its own event subscription.
+- **Cloudflare Email Service is new.** Email Sending is in open beta and still changing: event shapes, limits and pricing may move under you.
+  Check the [docs](https://developers.cloudflare.com/email-service/) before you rely on a detail here.
+- **The dead-letter queue isn't watched yet.** An event whose hook keeps failing lands in `mailroom-email-events-dlq` and stays there until you look.
+- **Caps are UTC.** Days and months roll over at midnight UTC, not your local midnight.
+- **One recipient per send.** No CC, BCC or batch sends; call `send()` once per person.
+- **No templates, no scheduling, no open or click tracking.** Apps render their own email and decide when to send it.
+- **Pricing.** Workers Paid includes 3,000 emails a month, then $0.35 per 1,000 (`MONTHLY_INCLUDED` drives the usage view only).
+- **It's run by one person.** I fix what breaks for my apps first.
+  Issues and PRs are welcome, but there's no SLA.
 
 ## Development
 
 ```bash
 npm install
-npm test            # workerd and a local D1; the send binding is a fake, nothing is sent
+npm test               # workerd and a local D1; the send binding is a fake
 npm run typecheck
-npm run check:deploy
+npm run check:deploy   # dry run of every deployment
 ```
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) to send a change, and [SECURITY.md](SECURITY.md) to report a vulnerability.
 
 ## License
 
-MIT
+[MIT](LICENSE)
