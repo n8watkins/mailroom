@@ -1,0 +1,60 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  // mailroom: every app's transactional email through Cloudflare Email Service.
+  // Apps call the `Mailroom` entrypoint over a service binding (README.md).
+  "name": "mailroom",
+  "account_id": "b2c564cf83cb9184dd6d7cc4ff8b38bf",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-11-01",
+  // No public address: only service bindings reach it.
+  "workers_dev": false,
+  "preview_urls": false,
+  "observability": { "enabled": true, "head_sampling_rate": 1 },
+  // Unrestricted recipients; the senders each app may use are checked in
+  // src/apps.ts, and this list is the outer bound for all of them.
+  "send_email": [
+    {
+      "name": "EMAIL",
+      "allowed_sender_addresses": [
+        "prpost@n8builds.dev",
+        "cutelyaskme@n8builds.dev",
+        "contact@n8builds.dev",
+        "nettrailers@n8builds.dev",
+        "wren@n8builds.dev",
+        "keysready@n8builds.dev",
+        "portfoliorank@n8builds.dev",
+        "support@n8builds.dev"
+      ]
+    }
+  ],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "mailroom",
+      "database_id": "b59df95d-1cd0-45f2-b378-c01fd1daf174",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "queues": {
+    // Email Sending events (one subscription per sending domain, README.md).
+    "consumers": [
+      {
+        "queue": "mailroom-email-events",
+        "max_batch_size": 25,
+        "max_batch_timeout": 10,
+        "max_retries": 8,
+        "dead_letter_queue": "mailroom-email-events-dlq"
+      }
+    ]
+  },
+  // Daily cleanup of expired counters and old rows.
+  "triggers": { "crons": ["23 4 * * *"] },
+  "vars": {
+    // The account's Email Sending limit is 1,000 a day today (GET /email/sending/limits).
+    "GLOBAL_DAY_CAP": "900",
+    "PRIORITY_RESERVE": "150"
+  }
+  // App hooks for bounce and complaint events are added here as each app
+  // migrates, for example:
+  //   "services": [{ "binding": "HOOK_PRPOST", "service": "pull-request-post", "entrypoint": "EmailEvents" }]
+}
