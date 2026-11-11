@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="320" height="180" viewBox="0 0 320 180" role="img" aria-labelledby="t">
+  <title id="t">A cork board with envelopes pinned to it, joined by red string</title>
+  <!-- Frame and cork -->
+  <rect x="2" y="2" width="316" height="176" rx="10" fill="#8a5a33"/>
+  <rect x="12" y="12" width="296" height="156" rx="4" fill="#d6a76c"/>
+  <g fill="#b98549" opacity="0.55">
+    <circle cx="40" cy="30" r="2"/><circle cx="95" cy="150" r="1.6"/><circle cx="150" cy="40" r="1.8"/>
+    <circle cx="205" cy="155" r="2"/><circle cx="270" cy="35" r="1.6"/><circle cx="285" cy="140" r="1.8"/>
+    <circle cx="60" cy="95" r="1.5"/><circle cx="170" cy="100" r="1.4"/><circle cx="240" cy="90" r="1.6"/>
+  </g>
+  <!-- Envelopes -->
+  <g stroke="#9b8f80" stroke-width="1.5" stroke-linejoin="round">
+    <g transform="rotate(-8 70 55)"><rect x="40" y="36" width="60" height="38" rx="2" fill="#fbf7ef"/><path d="M40 36 L70 58 L100 36" fill="none"/></g>
+    <g transform="rotate(6 160 120)"><rect x="130" y="101" width="60" height="38" rx="2" fill="#fbf7ef"/><path d="M130 101 L160 123 L190 101" fill="none"/></g>
+    <g transform="rotate(-4 250 55)"><rect x="220" y="36" width="60" height="38" rx="2" fill="#fbf7ef"/><path d="M220 36 L250 58 L280 36" fill="none"/></g>
+    <g transform="rotate(10 70 135)"><rect x="45" y="118" width="50" height="32" rx="2" fill="#fbf7ef"/><path d="M45 118 L70 136 L95 118" fill="none"/></g>
+    <g transform="rotate(-9 262 132)"><rect x="237" y="116" width="50" height="32" rx="2" fill="#fbf7ef"/><path d="M237 116 L262 134 L287 116" fill="none"/></g>
+  </g>
+  <!-- Red string between the pins -->
+  <g stroke="#c4262e" stroke-width="2" fill="none" stroke-linecap="round">
+    <path d="M70 34 L160 99"/><path d="M160 99 L250 34"/><path d="M70 34 L250 34"/>
+    <path d="M70 116 L160 99"/><path d="M160 99 L262 114"/><path d="M70 116 L250 34"/>
+  </g>
+  <!-- Pins -->
+  <g fill="#e0353d" stroke="#8f1d22" stroke-width="1">
+    <circle cx="70" cy="34" r="4.5"/><circle cx="160" cy="99" r="4.5"/><circle cx="250" cy="34" r="4.5"/>
+    <circle cx="70" cy="116" r="4.5"/><circle cx="262" cy="114" r="4.5"/>
+  </g>
+</svg>

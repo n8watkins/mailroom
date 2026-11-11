@@ -1,6 +1,6 @@
 /** What an app passes to `send()`. Templates and rendering stay in the app. */
 export interface SendRequest {
-  /** What it is: one of the app's kinds in src/apps.ts. */
+  /** What it is: one of the app's kinds in its deployment's apps file. */
   kind: string;
   /** One recipient. */
   to: string;
@@ -73,7 +73,7 @@ export interface AppUsage {
   sentMonth: number;
   /** The caps in force: `day` is the owner's override when one is set. */
   caps: { day: number; month: number; recipientDay: number };
-  /** The daily cap from src/apps.ts, without the override. */
+  /** The daily cap from the apps file, without the override. */
   defaultDayCap: number;
   /** True while the owner has paused this app's email. */
   paused: boolean;

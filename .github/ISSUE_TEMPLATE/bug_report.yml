@@ -1,0 +1,28 @@
+name: Bug report
+description: Something in mailroom doesn't work the way the README says.
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what happened instead. Include the `send()` result code if there was one.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: How to reproduce
+      description: The smallest app config and call that shows it. Use example.com addresses; never paste real addresses, keys or account ids.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: mailroom version or commit
+    validations:
+      required: true
+  - type: input
+    id: wrangler
+    attributes:
+      label: Wrangler version
