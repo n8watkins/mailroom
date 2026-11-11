@@ -122,7 +122,7 @@ export function capRules(appId: string, app: AppConfig, kind: string, recipient:
   const globalMonth = globalMonthWindow(now);
   const monthly = monthCaps(env);
   return [
-    { key: `recipient:${day.id}:${recipient}`, limit: app.caps.recipientDay, expiresAt: day.end, code: "cap_recipient" },
+    { key: `recipient:${appId}:${day.id}:${recipient}`, limit: app.caps.recipientDay, expiresAt: day.end, code: "cap_recipient" },
     { key: `app:${appId}:${day.id}`, limit: dayCap ?? app.caps.day, expiresAt: day.end, code: "cap_app_day" },
     { key: `app:${appId}:${month.id}`, limit: app.caps.month, expiresAt: month.end, code: "cap_app_month" },
     {
