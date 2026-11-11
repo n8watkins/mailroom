@@ -31,7 +31,11 @@ queue "mailroom-email-events" (Email Sending subscription per sending domain) â”
   The n8builds-admin dashboard reads it through its own service binding.
   The monthly count is an upper bound: Cloudflare does not bill sends to verified Email Routing addresses (the owner's own inbox), and they are counted here.
 
-There is no public URL: `workers_dev` is off and the `fetch` handler answers 404.
+- **Retention.** A daily cron keeps each send's recipient, kind and time for 400 days, and what became of it (its events, message id and error) for 180 days, as the privacy policies of the apps that use mailroom state.
+  The suppression list is kept until the owner removes an entry, so an address that bounced for good or complained gets no more email.
+  Logs carry the app, kind and outcome, never an address or any email content.
+
+There is no public URL: `workers_dev` and preview URLs are off, there are no routes, and the `fetch` handler answers 404.
 
 ## The owner's dashboard
 
@@ -99,7 +103,7 @@ An event is passed to the hook once even when the queue delivers it twice.
 Several apps already send through their own `send_email` binding with a local daily cap (an `email_sends` count table and `EMAIL_DAILY_CAP`).
 The move keeps exactly one effective limit in force at every moment: never two different limits, never none.
 
-1. **Match the caps first.** In mailroom's `src/apps.ts`, set the app's `caps.day` to the app's current `EMAIL_DAILY_CAP`, and `caps.month` no lower than 30 times that, so mailroom adds no new, tighter limit.
+1. **Match the caps first.** In mailroom's `src/apps.ts`, set the app's `caps.day` to the app's current `EMAIL_DAILY_CAP`, and `caps.month` no lower than 31 times that (the longest month), so mailroom adds no new, tighter limit.
    Deploy mailroom.
 2. **Switch the transport behind a flag.** One app PR adds the `MAILROOM` service binding and an `EMAIL_VIA` variable (`binding`, the default, or `mailroom`).
    With `mailroom`, the app sends through `env.MAILROOM.send()` and keeps its local cap check and `email_sends` count exactly as before.

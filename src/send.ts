@@ -6,6 +6,10 @@ const EMAIL_RE = /^[^\s@<>(),;:"[\]\\]+@[^\s@<>(),;:"[\]\\]+\.[^\s@<>(),;:"[\]\\
 // A pending send older than this is taken to have died before recording its
 // result, so a retry with the same key may send it again.
 const PENDING_STALE_MS = 15 * 60 * 1000;
+// RFC 7230 token characters: what a header name may hold.
+const HEADER_NAME_RE = /^[!#$%&'*+.^_`|~0-9A-Za-z-]{1,100}$/;
+// Control characters (CR and LF among them) never belong in a header value or a display name.
+const CONTROL_RE = /[\u0000-\u001f\u007f]/;
 
 export interface SendDeps {
   env: Env;
@@ -35,11 +39,25 @@ export function validate(app: AppConfig, req: SendRequest): SendResult | { from:
   if (req.replyTo !== undefined && (typeof req.replyTo !== "string" || !EMAIL_RE.test(req.replyTo.trim()))) {
     return fail("invalid", "`replyTo` must be one email address.");
   }
+  if (req.fromName !== undefined && (typeof req.fromName !== "string" || CONTROL_RE.test(req.fromName) || req.fromName.length > 100)) {
+    return fail("invalid", "`fromName` must be one line of at most 100 characters.");
+  }
+  if (req.headers !== undefined) {
+    if (!req.headers || typeof req.headers !== "object" || Array.isArray(req.headers)) return fail("invalid", "`headers` must be an object.");
+    for (const [name, value] of Object.entries(req.headers)) {
+      if (!HEADER_NAME_RE.test(name)) return fail("invalid", `Header name "${name.slice(0, 100)}" is not valid.`);
+      if (typeof value !== "string" || CONTROL_RE.test(value)) return fail("invalid", `Header "${name}" must be a one-line string.`);
+    }
+  }
+  if (req.attachments !== undefined && !Array.isArray(req.attachments)) return fail("invalid", "`attachments` must be an array.");
   if (req.key !== undefined && (typeof req.key !== "string" || req.key.length === 0 || req.key.length > 200)) {
     return fail("invalid", "`key` must be a string of 1 to 200 characters.");
   }
+  if (req.from !== undefined && typeof req.from !== "string") return fail("invalid", "`from` must be one email address.");
   const from = normalizeAddress(req.from ?? defaultSender(app) ?? "");
-  if (!from || !app.senders.some((allowed) => matchesSender(allowed, from))) {
+  // EMAIL_RE first: a domain rule ("@example.com") checks only the domain, so
+  // the local part must be shown to be a plain address here.
+  if (!from || !EMAIL_RE.test(from) || !app.senders.some((allowed) => matchesSender(allowed, from))) {
     return fail("sender_not_allowed", `This app may not send as "${from || "(none)"}".`);
   }
   return { from };
@@ -111,8 +129,18 @@ export function capRules(appId: string, app: AppConfig, kind: string, recipient:
   ];
 }
 
-/** Sends one email for an app. Never throws for a refused or failed send; the result says why. */
+/** Sends one email for an app. Never throws: a refused or failed send, or a database error, comes back as a result. */
 export async function sendFor(appId: string | undefined, req: SendRequest, deps: SendDeps): Promise<SendResult> {
+  try {
+    return await sendOnce(appId, req, deps);
+  } catch (error) {
+    // A database error before the email went out (sendOnce does not throw after it).
+    console.log(JSON.stringify({ event: "send_error", app: appId ?? null, error: String(error) }));
+    return fail("unavailable", "mailroom could not record this send; try again later.", true);
+  }
+}
+
+async function sendOnce(appId: string | undefined, req: SendRequest, deps: SendDeps): Promise<SendResult> {
   const apps = deps.apps ?? APPS;
   const now = (deps.now ?? Date.now)();
   const { env } = deps;

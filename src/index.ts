@@ -22,9 +22,11 @@ import type { AppUsage, CallerProps, Env, MailEvent, SendRequest, SendResult, Us
 export type { AppUsage, MailEvent, SendRequest, SendResult, Usage } from "./types";
 export type { ActionResult, AuditRow, ProblemRow, SendRow, SuppressionRow } from "./admin";
 
-// Rows older than these are deleted by the daily cron.
+// Retention, as the privacy policies that name mailroom state it (open-ping
+// docs/legal/PRIVACY.md): the recipient, kind and time of each send for 400
+// days; what became of it (events, and a send's message id and error) for 180.
 const SENDS_KEEP_MS = 400 * DAY_MS;
-const EVENTS_KEEP_MS = 180 * DAY_MS;
+const STATUS_KEEP_MS = 180 * DAY_MS;
 
 /**
  * The RPC interface apps call through a service binding:
@@ -173,7 +175,10 @@ export async function cleanup(env: Env, now = Date.now()): Promise<void> {
   await env.DB.batch([
     env.DB.prepare("DELETE FROM counters WHERE expires_at < ?").bind(now),
     env.DB.prepare("DELETE FROM sends WHERE created_at < ?").bind(now - SENDS_KEEP_MS),
-    env.DB.prepare("DELETE FROM email_events WHERE received_at < ?").bind(now - EVENTS_KEEP_MS),
+    env.DB.prepare("UPDATE sends SET message_id = NULL, error = NULL WHERE created_at < ? AND (message_id IS NOT NULL OR error IS NOT NULL)").bind(
+      now - STATUS_KEEP_MS,
+    ),
+    env.DB.prepare("DELETE FROM email_events WHERE received_at < ?").bind(now - STATUS_KEEP_MS),
   ]);
 }
 
