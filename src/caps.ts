@@ -3,6 +3,7 @@
  * every counter it names or from none: each counter is incremented only while
  * it is under its limit, and a refused reservation gives back what it took.
  */
+import type { Env } from "./types";
 
 export const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -103,4 +104,22 @@ export async function release(db: D1Database, rules: CapRule[]): Promise<void> {
 export async function count(db: D1Database, key: string): Promise<number> {
   const row = await db.prepare("SELECT n FROM counters WHERE key = ?").bind(key).first<{ n: number }>();
   return row?.n ?? 0;
+}
+
+/** What GLOBAL_MONTH_CAP and PRIORITY_MONTH_RESERVE fall back to when unset: never unlimited. */
+export const DEFAULT_GLOBAL_MONTH_CAP = 2500;
+export const DEFAULT_PRIORITY_MONTH_RESERVE = 300;
+/** The share of the monthly cap where the admin shows "Needs attention": the first alert threshold (src/alerts.ts). */
+export const MONTH_WARN_RATIO = 0.7;
+
+function wholeOr(value: string | undefined, fallback: number): number {
+  const n = Number(value);
+  return value !== undefined && value.trim() !== "" && Number.isInteger(n) && n >= 0 ? n : fallback;
+}
+
+/** The all-app monthly cap, its sign-in reserve and the warning line, from the env. */
+export function monthCaps(env: Env): { cap: number; priorityReserve: number; warnAt: number } {
+  const cap = wholeOr(env.GLOBAL_MONTH_CAP, DEFAULT_GLOBAL_MONTH_CAP);
+  const priorityReserve = Math.min(wholeOr(env.PRIORITY_MONTH_RESERVE, DEFAULT_PRIORITY_MONTH_RESERVE), cap);
+  return { cap, priorityReserve, warnAt: Math.ceil(cap * MONTH_WARN_RATIO) };
 }

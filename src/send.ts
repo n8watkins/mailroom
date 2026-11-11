@@ -1,5 +1,8 @@
 import { APPS, matchesSender, type AppConfig } from "./apps";
-import { DAY_MS, dayWindow, globalMonthWindow, MONTH_WINDOW_DAYS, monthWindow, release, reserve, sumRange, type CapRule } from "./caps";
+import { checkCapAlerts } from "./alerts";
+import { dayWindow, globalMonthWindow, monthCaps, monthWindow, release, reserve, type CapRule } from "./caps";
+
+export { monthCaps } from "./caps";
 import type { Env, SendErrorCode, SendRequest, SendResult } from "./types";
 
 const EMAIL_RE = /^[^\s@<>(),;:"[\]\\]+@[^\s@<>(),;:"[\]\\]+\.[^\s@<>(),;:"[\]\\]+$/;
@@ -110,26 +113,6 @@ export async function appSettings(db: D1Database, appId: string): Promise<{ paus
   return { paused: row?.paused === 1, dayCap: row?.day_cap ?? null };
 }
 
-/** What GLOBAL_MONTH_CAP and PRIORITY_MONTH_RESERVE fall back to when unset: never unlimited. */
-export const DEFAULT_GLOBAL_MONTH_CAP = 2500;
-export const DEFAULT_PRIORITY_MONTH_RESERVE = 300;
-/** The share of the monthly cap at which the admin shows "Needs attention". */
-export const MONTH_WARN_RATIO = 0.8;
-/** The counters row that records when monthly use crossed MONTH_WARN_RATIO (its `n` is that time). */
-export const MONTH_ATTENTION_KEY = "flag:global-month-attention";
-
-function wholeOr(value: string | undefined, fallback: number): number {
-  const n = Number(value);
-  return value !== undefined && value.trim() !== "" && Number.isInteger(n) && n >= 0 ? n : fallback;
-}
-
-/** The all-app monthly cap, its sign-in reserve and the warning line, from the env. */
-export function monthCaps(env: Env): { cap: number; priorityReserve: number; warnAt: number } {
-  const cap = wholeOr(env.GLOBAL_MONTH_CAP, DEFAULT_GLOBAL_MONTH_CAP);
-  const priorityReserve = Math.min(wholeOr(env.PRIORITY_MONTH_RESERVE, DEFAULT_PRIORITY_MONTH_RESERVE), cap);
-  return { cap, priorityReserve, warnAt: Math.ceil(cap * MONTH_WARN_RATIO) };
-}
-
 export function capRules(appId: string, app: AppConfig, kind: string, recipient: string, env: Env, now: number, dayCap?: number | null): CapRule[] {
   const day = dayWindow(now);
   const month = monthWindow(now);
@@ -227,6 +210,7 @@ async function sendOnce(appId: string | undefined, req: SendRequest, deps: SendD
   const refused = await reserve(db, rules);
   if (refused) {
     await markFailed(db, rowId, refused, now);
+    if (refused === "cap_global_month" || refused === "cap_global_day") await checkCapAlerts(env, now, refused);
     return fail(refused as SendErrorCode, capMessage(refused), true);
   }
 
@@ -262,27 +246,8 @@ async function sendOnce(appId: string | undefined, req: SendRequest, deps: SendD
     console.log(JSON.stringify({ event: "send_record_failed", app: appId, kind: req.kind, error: String(error) }));
   }
   console.log(JSON.stringify({ event: "sent", app: appId, kind: req.kind }));
-  try {
-    await flagMonthlyUse(env, now);
-  } catch (error) {
-    console.log(JSON.stringify({ event: "attention_flag_failed", error: String(error) }));
-  }
+  await checkCapAlerts(env, now);
   return { ok: true, messageId };
-}
-
-/**
- * Records when all-app use in the monthly window first reached
- * MONTH_WARN_RATIO of the cap, for the admin's "Needs attention". Nobody is
- * emailed. The record lasts one window, then a send above the line records it again.
- */
-async function flagMonthlyUse(env: Env, now: number): Promise<void> {
-  const { warnAt } = monthCaps(env);
-  const window = globalMonthWindow(now);
-  if ((await sumRange(env.DB, window.from, window.key)) < warnAt) return;
-  const flagged = await env.DB.prepare("INSERT INTO counters (key, n, expires_at) VALUES (?, ?, ?) ON CONFLICT (key) DO NOTHING")
-    .bind(MONTH_ATTENTION_KEY, now, now + MONTH_WINDOW_DAYS * DAY_MS)
-    .run();
-  if (flagged.meta.changes === 1) console.log(JSON.stringify({ event: "global_month_attention", warnAt }));
 }
 
 async function markFailed(db: D1Database, id: number, error: string, now: number): Promise<void> {

@@ -26,7 +26,9 @@
         "wren@n8builds.dev",
         "keysready@n8builds.dev",
         "portfoliorank@n8builds.dev",
-        "support@n8builds.dev"
+        "support@n8builds.dev",
+        // mailroom's own cap alerts to the owner (ALERT_FROM).
+        "alerts@n8builds.dev"
       ]
     }
   ],
@@ -62,6 +64,10 @@
     "GLOBAL_MONTH_CAP": "2500",
     // The part of GLOBAL_MONTH_CAP only priority kinds (sign-in links) may use.
     "PRIORITY_MONTH_RESERVE": "300",
+    // Cap alerts (README.md, "Cap alerts"). ALERT_TO, the owner's verified Email
+    // Routing destination, is a secret: npx wrangler secret put ALERT_TO -c <this file>.
+    "ALERT_FROM": "alerts@n8builds.dev",
+    "ADMIN_URL": "https://admin.n8builds.dev/mailroom",
     // Emails a month Workers Paid includes before $0.35 per 1,000, for the usage view.
     "MONTHLY_INCLUDED": "3000"
   },

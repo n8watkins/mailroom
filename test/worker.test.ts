@@ -48,7 +48,7 @@ describe("worker", () => {
     expect(usage.apps.map((a) => a.app)).toEqual(Object.keys(APPS));
     expect(usage.globalDayCap).toBe(900);
     expect(usage.monthlyIncluded).toBe(3000);
-    expect(usage.globalMonth).toMatchObject({ used: 0, cap: 2500, priorityReserve: 300, warnAt: 2000, windowDays: 32, attention: false });
+    expect(usage.globalMonth).toMatchObject({ used: 0, cap: 2500, priorityReserve: 300, warnAt: 1750, windowDays: 32, attention: false, alerts: [] });
     expect(usage.eventsSince).toBeNull();
     expect(JSON.stringify(usage)).not.toContain("@");
   });

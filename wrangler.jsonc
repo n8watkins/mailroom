@@ -20,7 +20,8 @@
   "send_email": [
     {
       "name": "EMAIL",
-      "allowed_sender_addresses": ["hello@example.com", "orders@example.com"]
+      // Your apps' senders, plus ALERT_FROM for mailroom's own cap alerts.
+      "allowed_sender_addresses": ["hello@example.com", "orders@example.com", "alerts@example.com"]
     }
   ],
   "d1_databases": [
@@ -58,6 +59,11 @@
     "GLOBAL_MONTH_CAP": "2500",
     // The part of GLOBAL_MONTH_CAP only `priority` kinds (sign-in links) may use.
     "PRIORITY_MONTH_RESERVE": "300",
+    // Cap alerts go from ALERT_FROM to ALERT_TO, your address, which you set as a
+    // secret (npx wrangler secret put ALERT_TO): README.md, "Cap alerts".
+    "ALERT_FROM": "alerts@example.com",
+    // Your admin's mailroom page, linked from each alert (optional).
+    "ADMIN_URL": "https://admin.example.com/mailroom",
     // Emails a month your plan includes (3,000 on Workers Paid), for the usage view.
     "MONTHLY_INCLUDED": "3000"
   },
