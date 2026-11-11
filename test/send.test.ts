@@ -160,22 +160,22 @@ describe("send", () => {
     });
 
     it("falls back to 2,500 with 300 for sign-in when unset, never to unlimited", () => {
-      expect(monthCaps(testEnv({ GLOBAL_MONTH_CAP: undefined, PRIORITY_MONTH_RESERVE: undefined }))).toEqual({ cap: 2500, priorityReserve: 300, warnAt: 2000 });
-      expect(monthCaps(testEnv({ GLOBAL_MONTH_CAP: "lots", PRIORITY_MONTH_RESERVE: "-1" }))).toEqual({ cap: 2500, priorityReserve: 300, warnAt: 2000 });
-      expect(monthCaps(testEnv({ GLOBAL_MONTH_CAP: "100", PRIORITY_MONTH_RESERVE: "500" }))).toEqual({ cap: 100, priorityReserve: 100, warnAt: 80 });
+      expect(monthCaps(testEnv({ GLOBAL_MONTH_CAP: undefined, PRIORITY_MONTH_RESERVE: undefined }))).toEqual({ cap: 2500, priorityReserve: 300, warnAt: 1750 });
+      expect(monthCaps(testEnv({ GLOBAL_MONTH_CAP: "lots", PRIORITY_MONTH_RESERVE: "-1" }))).toEqual({ cap: 2500, priorityReserve: 300, warnAt: 1750 });
+      expect(monthCaps(testEnv({ GLOBAL_MONTH_CAP: "100", PRIORITY_MONTH_RESERVE: "500" }))).toEqual({ cap: 100, priorityReserve: 100, warnAt: 70 });
     });
 
-    it("flags the admin at 80% of the cap, without emailing anyone", async () => {
+    it("flags the admin at 70% of the cap, and emails nobody without ALERT_TO", async () => {
       const e = { GLOBAL_MONTH_CAP: "10", PRIORITY_MONTH_RESERVE: "0" };
       const { email, send } = setup(e);
-      for (let n = 0; n < 7; n++) await send("beta", notice(`f${n}@example.net`));
+      for (let n = 0; n < 6; n++) await send("beta", notice(`f${n}@example.net`));
       let usage = await usageReport(testEnv(e), NOW);
-      expect(usage.globalMonth).toMatchObject({ used: 7, cap: 10, warnAt: 8, attention: false, attentionSince: null, windowStart: "2026-10-10", windowDays: 32 });
-      await send("beta", notice("f7@example.net"), NOW + 1000);
-      await send("beta", notice("f8@example.net"), NOW + 2000);
+      expect(usage.globalMonth).toMatchObject({ used: 6, cap: 10, warnAt: 7, attention: false, attentionSince: null, windowStart: "2026-10-10", windowDays: 32 });
+      await send("beta", notice("f6@example.net"), NOW + 1000);
+      await send("beta", notice("f7@example.net"), NOW + 2000);
       usage = await usageReport(testEnv(e), NOW + 3000);
-      expect(usage.globalMonth).toMatchObject({ used: 9, attention: true, attentionSince: NOW + 1000 });
-      expect(email.sent).toHaveLength(9);
+      expect(usage.globalMonth).toMatchObject({ used: 8, attention: true, attentionSince: NOW + 1000, alerts: [{ threshold: 70, at: NOW + 1000 }] });
+      expect(email.sent).toHaveLength(8);
     });
   });
 

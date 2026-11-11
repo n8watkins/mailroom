@@ -31,6 +31,9 @@ function deployments() {
       globalDayCap: Number(c.vars?.GLOBAL_DAY_CAP),
       // The default when unset (src/send.ts DEFAULT_GLOBAL_MONTH_CAP).
       globalMonthCap: c.vars?.GLOBAL_MONTH_CAP === undefined ? 2500 : Number(c.vars.GLOBAL_MONTH_CAP),
+      alertFrom: typeof c.vars?.ALERT_FROM === "string" ? c.vars.ALERT_FROM : null,
+      // ALERT_TO is a secret: it must never be committed in vars.
+      alertToInVars: c.vars?.ALERT_TO !== undefined,
     };
   });
 }

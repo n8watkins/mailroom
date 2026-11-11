@@ -29,6 +29,15 @@ describe("deployments", () => {
       const monthly = Object.values(apps).reduce((sum, app) => sum + app.caps.month, 0);
       expect(monthly, "the apps' monthly caps add up to more than GLOBAL_MONTH_CAP").toBeLessThanOrEqual(deployment.globalMonthCap);
     });
+
+    it(`${deployment.config} can send cap alerts, and keeps ALERT_TO out of the repository`, () => {
+      expect(deployment.alertToInVars, "set ALERT_TO with `wrangler secret put`, not in vars").toBe(false);
+      const from = deployment.alertFrom?.toLowerCase();
+      expect(from, "set ALERT_FROM in vars").toBeTruthy();
+      if (deployment.allowedSenders) expect(deployment.allowedSenders.map((s) => s.toLowerCase())).toContain(from);
+      const apps = appsAt(deployment.apps!)!;
+      expect(Object.values(apps).flatMap((a) => a.senders.map((s) => s.toLowerCase())), "ALERT_FROM must be no app's sender").not.toContain(from);
+    });
   }
 });
 

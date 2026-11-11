@@ -106,13 +106,17 @@ export interface Usage {
     /** The first day the window counts (UTC, YYYY-MM-DD). */
     windowStart: string;
     windowDays: number;
-    /** `used` at or past this (80% of `cap`) needs attention. */
+    /** `used` at or past this (70% of `cap`, the first alert threshold) needs attention. */
     warnAt: number;
     /** True while `used` is at or past `warnAt`: show "Needs attention". */
     attention: boolean;
     /** When use first crossed `warnAt` (epoch ms), while `attention` holds and it was recorded. */
     attentionSince: number | null;
+    /** The thresholds (70, 85, 95, 100 percent) already alerted in this window, and when. */
+    alerts: Array<{ threshold: number; at: number }>;
   };
+  /** When today's all-app daily cap was reached and alerted (epoch ms), or null. */
+  globalDayCappedAt: number | null;
   /** Emails a month the account's plan includes before overage (3,000 on Workers Paid). */
   monthlyIncluded: number;
   /** Every delivered or bounced message this month on subscribed domains, apps and others together. */
@@ -139,6 +143,16 @@ export interface Env {
   PRIORITY_MONTH_RESERVE?: string;
   /** Emails a month the account's plan includes (3,000 on Workers Paid), for the usage view. */
   MONTHLY_INCLUDED?: string;
+  /**
+   * The owner's address for cap alerts (src/alerts.ts). Set it as a secret,
+   * so it stays out of the repository, and make it a verified Email Routing
+   * destination so alerts are free. No alerts are emailed while it's unset.
+   */
+  ALERT_TO?: string;
+  /** The sender for cap alerts, in the send_email binding's allowed_sender_addresses and no app's sender. */
+  ALERT_FROM?: string;
+  /** The admin's Mailroom page, linked from each alert. */
+  ADMIN_URL?: string;
   [hook: `HOOK_${string}`]: EmailEventHook | undefined;
 }
 

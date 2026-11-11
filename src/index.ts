@@ -14,9 +14,10 @@ import {
   type SuppressionRow,
 } from "./admin";
 import { APPS } from "./apps";
-import { count, dayWindow, globalMonthWindow, monthWindow, MONTH_WINDOW_DAYS, sumRange, DAY_MS } from "./caps";
+import { dayAlertAt, monthAlerts } from "./alerts";
+import { count, dayWindow, globalMonthWindow, monthCaps, monthWindow, MONTH_WINDOW_DAYS, sumRange, DAY_MS } from "./caps";
 import { eventsFor, handleEvent, type EmailSendingEvent } from "./events";
-import { isSuppressed, monthCaps, MONTH_ATTENTION_KEY, sendFor } from "./send";
+import { isSuppressed, sendFor } from "./send";
 import type { AppUsage, CallerProps, Env, MailEvent, SendRequest, SendResult, Usage } from "./types";
 
 export type { AppUsage, MailEvent, SendRequest, SendResult, Usage } from "./types";
@@ -159,9 +160,7 @@ export async function usageReport(env: Env, now = Date.now()): Promise<Usage> {
   const monthly = monthCaps(env);
   const monthUsed = await sumRange(db, globalMonth.from, globalMonth.key);
   const attention = monthUsed >= monthly.warnAt;
-  const flag = attention
-    ? await db.prepare("SELECT n FROM counters WHERE key = ? AND expires_at >= ?").bind(MONTH_ATTENTION_KEY, now).first<{ n: number }>()
-    : null;
+  const alerts = await monthAlerts(db, now);
   const since = (first?.results?.[0] as { since: number | null } | undefined)?.since ?? null;
   return {
     generatedAt: new Date(now).toISOString(),
@@ -178,8 +177,10 @@ export async function usageReport(env: Env, now = Date.now()): Promise<Usage> {
       windowDays: MONTH_WINDOW_DAYS,
       warnAt: monthly.warnAt,
       attention,
-      attentionSince: flag?.n ?? null,
+      attentionSince: attention ? (alerts[0]?.at ?? null) : null,
+      alerts,
     },
+    globalDayCappedAt: await dayAlertAt(db, now),
     monthlyIncluded: Number(env.MONTHLY_INCLUDED) || 3000,
     accountMonth: sentRows.reduce((sum, r) => sum + r.n, 0),
     otherSenders,

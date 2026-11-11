@@ -223,11 +223,19 @@ The 500 below 3,000 is a buffer for what mailroom can't count, such as an app th
 
 Each app's `month` cap is its slice of `GLOBAL_MONTH_CAP`, and its `day` cap its slice of `GLOBAL_DAY_CAP`: `npm test` fails when the slices add up to more, so one app can't spend another's share.
 
-When the window reaches 80% of `GLOBAL_MONTH_CAP`, mailroom records it and `usage().globalMonth.attention` turns true, for the admin to show "Needs attention".
-Nobody is emailed.
-
 Sends to verified Email Routing destination addresses (your own inbox) are free and don't count toward Cloudflare's quota or daily limit.
-mailroom counts them anyway: it can't tell whether an address is still verified, and counting a free send only leaves more unused, while missing a paid one could cost money.
+mailroom counts them anyway: it can't tell whether an address is still verified, Cloudflare doesn't always report them, and counting a free send only leaves one unused, while missing a paid one could cost money.
+
+### Cap alerts
+
+mailroom emails you as the all-app caps fill up: at 70, 85, 95 and 100% of `GLOBAL_MONTH_CAP`, and when `GLOBAL_DAY_CAP` is reached.
+A refusal by a global cap counts as reaching it, even while the sign-in reserve is left.
+Each alert says which cap, how much is used, the top apps in that period and a link to `ADMIN_URL`, and goes out once: monthly thresholds once per 32-day window, the daily cap once per UTC day.
+The admin shows "Needs attention" from the first threshold, 70% (`usage().globalMonth.attention`, with the thresholds reached in `alerts`).
+
+- `ALERT_TO` is your address. Set it as a secret (`npx wrangler secret put ALERT_TO -c <config>`) so it stays out of the repository, and make it a verified Email Routing destination address so alerts are free. While it's unset, thresholds are still recorded for the admin, but nobody is emailed.
+- `ALERT_FROM` is the sender, on a domain you send from; add it to the `send_email` binding's `allowed_sender_addresses`, and give it to no app.
+- Alerts never pass through the global caps, so a full cap can't block the alert about it. Their own limits, 10 a day and 40 in any 32 days, keep a bug from looping, and they're recorded in `sends` as app `mailroom`, kind `alert`.
 
 A send that fails gives its units back.
 A refused send returns a `cap_*` code and says whether retrying later can help.
@@ -249,8 +257,8 @@ A consumer on the `mailroom-email-events` queue stores every Email Sending event
 It matches each event to the app by message id, or by sender when the message didn't go through mailroom, and calls that app's hook for bounces, complaints, rejections and failures.
 
 `usage()` counts each app's sends today and this month against its caps, plus what Email Sending delivered or bounced this month, so apps that still send with their own binding show up too.
-`globalMonth` holds the all-app monthly window: `used`, `cap`, `priorityReserve`, `windowStart`, `warnAt`, and `attention` with `attentionSince`.
-Sends to verified Email Routing addresses (your own inbox) are free and Cloudflare publishes no event for them, so they are not in the monthly count; mailroom's own day and month counters, which its caps use, do include them.
+`globalMonth` holds the all-app monthly window: `used`, `cap`, `priorityReserve`, `windowStart`, `warnAt`, `attention` with `attentionSince`, and the `alerts` sent this window; `globalDayCappedAt` says when today's daily cap was reached.
+Sends to verified Email Routing addresses (your own inbox) are free, and Cloudflare does not always publish an event for them, so the event-based monthly count may miss some; mailroom's own day and month counters, which its caps use, always include them.
 
 ### Retention
 
