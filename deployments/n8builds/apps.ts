@@ -47,9 +47,12 @@ export const APPS = {
     priority: ["signin"],
     caps: { day: 60, month: 150, recipientDay: 6 },
   },
+  // PortfolioRank (n8watkins/portfolio-rank): grade reports, report links,
+  // owner alerts and email sign-in links (kept a share of the day).
   portfoliorank: {
     senders: ["portfoliorank@n8builds.dev"],
-    kinds: ["report", "report-link", "owner-alert"],
+    kinds: ["report", "report-link", "owner-alert", "signin"],
+    priority: ["signin"],
     caps: { day: 60, month: 150, recipientDay: 6 },
   },
   openping: {
