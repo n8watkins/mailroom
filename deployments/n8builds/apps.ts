@@ -23,9 +23,10 @@ export const APPS = {
     kinds: ["invite", "plan-locked", "spot-ready", "date-canceled"],
     caps: { day: 100, month: 300, recipientDay: 10 },
   },
+  // announce: project announcements to confirmed waitlist people (n8builds-admin Announcements page).
   "n8builds-web": {
     senders: ["contact@n8builds.dev"],
-    kinds: ["contact-notice", "contact-reply", "quote-notice", "quote-reply", "waitlist"],
+    kinds: ["contact-notice", "contact-reply", "quote-notice", "quote-reply", "waitlist", "announce"],
     caps: { day: 60, month: 200, recipientDay: 30 },
   },
   nettrailers: {
