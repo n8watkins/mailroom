@@ -29,6 +29,7 @@
         "support@n8builds.dev",
         "tend@n8builds.dev",
         "news@n8builds.dev",
+        "portfoliorank-news@n8builds.dev",
         // mailroom's own cap alerts to the owner (ALERT_FROM).
         "alerts@n8builds.dev"
       ]

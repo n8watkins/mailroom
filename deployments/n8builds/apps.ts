@@ -33,7 +33,9 @@ export const APPS = {
     senders: ["nettrailers@n8builds.dev"],
     kinds: ["signin", "reply", "digest", "trending", "admin"],
     priority: ["signin"],
-    caps: { day: 150, month: 400, recipientDay: 10 },
+    // Lowered from 400 to make room for portfoliorank-news (it sent nothing in
+    // the 32 days before 2026-11-12); restore if NetTrailers needs it.
+    caps: { day: 150, month: 250, recipientDay: 10 },
   },
   wren: {
     senders: ["wren@n8builds.dev"],
@@ -77,6 +79,15 @@ export const APPS = {
   "n8builds-news": {
     senders: ["news@n8builds.dev"],
     kinds: ["confirm", "digest"],
+    caps: { day: 40, month: 150, recipientDay: 3 },
+  },
+  // The PortfolioRank blog newsletter (n8watkins/portfolio-rank, lib/newsletter):
+  // a confirm-your-address email, then one email per published post (at most
+  // 2 a week) to confirmed subscribers, sent in paced batches. Apart from the
+  // portfoliorank app, so a newsletter day can never use up sign-in links.
+  "portfoliorank-news": {
+    senders: ["portfoliorank-news@n8builds.dev"],
+    kinds: ["confirm", "post"],
     caps: { day: 40, month: 150, recipientDay: 3 },
   },
   // Tend (n8watkins/tend, tend.n8builds.dev): sign-in links and reminders.
