@@ -88,7 +88,7 @@ export const APPS = {
   "portfoliorank-news": {
     senders: ["portfoliorank-news@n8builds.dev"],
     kinds: ["confirm", "post"],
-    caps: { day: 40, month: 500, recipientDay: 3 },
+    caps: { day: 40, month: 350, recipientDay: 3 },
   },
   // Tend (n8watkins/tend, tend.n8builds.dev): sign-in links and reminders.
   tend: {
