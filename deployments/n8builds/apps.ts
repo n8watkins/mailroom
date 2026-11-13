@@ -33,9 +33,9 @@ export const APPS = {
     senders: ["nettrailers@n8builds.dev"],
     kinds: ["signin", "reply", "digest", "trending", "admin"],
     priority: ["signin"],
-    // Lowered from 400 to make room for portfoliorank-news (it sent nothing in
-    // the 32 days before 2026-11-12); restore if NetTrailers needs it.
-    caps: { day: 150, month: 250, recipientDay: 10 },
+    // Lowered from 400 to 50 to make room for portfoliorank-news (it sent
+    // nothing in the 32 days before 2026-11-12); restore if NetTrailers needs it.
+    caps: { day: 50, month: 50, recipientDay: 10 },
   },
   wren: {
     senders: ["wren@n8builds.dev"],
@@ -88,7 +88,7 @@ export const APPS = {
   "portfoliorank-news": {
     senders: ["portfoliorank-news@n8builds.dev"],
     kinds: ["confirm", "post"],
-    caps: { day: 40, month: 150, recipientDay: 3 },
+    caps: { day: 40, month: 500, recipientDay: 3 },
   },
   // Tend (n8watkins/tend, tend.n8builds.dev): sign-in links and reminders.
   tend: {
