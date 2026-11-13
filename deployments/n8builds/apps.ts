@@ -88,7 +88,22 @@ export const APPS = {
   "portfoliorank-news": {
     senders: ["portfoliorank-news@n8builds.dev"],
     kinds: ["confirm", "post"],
-    caps: { day: 40, month: 350, recipientDay: 3 },
+    // Lowered from 350 to 250 to make room for PortfolioRank's two staging apps below.
+    caps: { day: 40, month: 250, recipientDay: 3 },
+  },
+  // PortfolioRank's staging site (staging.portfoliorank.dev): the same kinds as
+  // portfoliorank and portfoliorank-news, from their own senders and with small
+  // caps, so testing on staging never spends production's share.
+  "portfoliorank-staging": {
+    senders: ["portfoliorank-staging@n8builds.dev"],
+    kinds: ["report", "report-link", "owner-alert", "signin"],
+    priority: ["signin"],
+    caps: { day: 20, month: 50, recipientDay: 5 },
+  },
+  "portfoliorank-news-staging": {
+    senders: ["portfoliorank-news-staging@n8builds.dev"],
+    kinds: ["confirm", "post"],
+    caps: { day: 20, month: 50, recipientDay: 5 },
   },
   // Tend (n8watkins/tend, tend.n8builds.dev): sign-in links and reminders.
   tend: {
