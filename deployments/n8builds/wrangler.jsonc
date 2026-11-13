@@ -30,6 +30,9 @@
         "tend@n8builds.dev",
         "news@n8builds.dev",
         "portfoliorank-news@n8builds.dev",
+        // PortfolioRank's staging apps (apps.ts).
+        "portfoliorank-staging@n8builds.dev",
+        "portfoliorank-news-staging@n8builds.dev",
         // mailroom's own cap alerts to the owner (ALERT_FROM).
         "alerts@n8builds.dev"
       ]
