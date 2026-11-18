@@ -24,7 +24,7 @@
     "@cloudflare/vitest-plugin": "^1.6.0",
     "@cloudflare/workers-types": "^5.20261101.1",
     "release-kit": "github:n8watkins/release-kit#v2.10.1",
-    "typescript": "^6.0.3",
+    "typescript": "^7.0.2",
     "vitest": "^5.1.0",
     "wrangler": "^4.156.0"
   },
