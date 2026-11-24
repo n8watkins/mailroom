@@ -71,8 +71,8 @@ export const APPS = {
     senders: [],
     kinds: ["signin", "account", "tenant"],
     priority: ["signin"],
-    // Lowered to make room for Tend and n8builds-news; restore at Hosted launch.
-    caps: { day: 100, month: 100, recipientDay: 40 },
+    // Lowered to make room for Tend, n8builds-news and chapel-oth; restore at Hosted launch.
+    caps: { day: 70, month: 70, recipientDay: 40 },
   },
   // The n8builds.dev blog newsletter (n8builds-web): a confirm-your-address email
   // and a weekly digest, sent only in weeks with a post.
@@ -89,6 +89,13 @@ export const APPS = {
     senders: ["portfoliorank-news@n8builds.dev"],
     kinds: ["confirm", "post"],
     caps: { day: 40, month: 350, recipientDay: 3 },
+  },
+  // Chapel of the Hills site (n8watkins/chapel-oth): one plain email to the owner when
+  // the daily verse recordings are behind or the job failed. At most one a day.
+  "chapel-oth": {
+    senders: ["chapel-alerts@n8builds.dev"],
+    kinds: ["verse-audio-alert"],
+    caps: { day: 3, month: 30, recipientDay: 3 },
   },
   // Tend (n8watkins/tend, tend.n8builds.dev): sign-in links and reminders.
   tend: {
